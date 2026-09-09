@@ -1,7 +1,12 @@
-"""ひとりごと（murmur）のアイコンを生成する。
+"""鉱脈（vein）のアイコンを生成する。
 
-図案は「喋ったものが行になる」。押す白い丸と、そこから右へ伸びる3本の行。
-行は下へ行くほど短い。アプリの中で実際に起きることと同じ形にしてある。
+図案はアプリの真ん中と同じ、平らなアメーバ。そこに脈が1本、通り抜けている。
+声（かたち）と、その中に走っている筋（洞察）を、線1本で重ねた形。
+
+脈はアメーバの中では地の色に反転する。塗りは2色だけで、影もグラデーションも使わない。
+
+地は紙（アプリと同じ #F4F2EE）、脈は墨（#14120F）。アプリと同じで、色は使わない。
+ember や aloud が黒地なので、ホーム画面で並んだときに見分けがつく。
 
 依存なしで動く（標準ライブラリのみ）。4倍のスーパーサンプリングで縁をなめらかにする。
 
@@ -19,34 +24,58 @@ OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # iOS Safari はホーム画面のアイコンを「URLごと」に長期キャッシュする。
 # 絵を変えたらこの数字を上げ、参照側（shell-head.html / manifest.json / sw.js）も
 # 揃えて書き換えること。同じファイル名のままでは端末に古い絵が残り続ける。
-VERSION = 1
-BG = (8, 8, 10)        # --void
-FG = (250, 250, 247)   # --lume
+VERSION = 2
+BG = (244, 242, 238)   # --void  紙
+FG = (20, 18, 15)      # --lume  墨
 SS = 4                 # 1辺あたりのサブサンプル数
 
-# 位置・太さはすべて画像サイズに対する比で持つ（どのサイズでも同じ見え方になる）
-DOT = (0.255, 0.500, 0.118)      # 丸の中心x, 中心y, 半径
-BAR_X = 0.430                    # 行の左端
-BAR_H = 0.052                    # 行の太さ
-BARS = [                         # 中心y, 右端x, 濃さ
-    (0.340, 0.815, 1.00),
-    (0.500, 0.720, 0.62),
-    (0.660, 0.588, 0.30),
+# アメーバ（アプリの真ん中と同じ考え方で、半径が角度ごとに揺れる閉じた形）
+BLOB_R = 0.285
+
+# 脈。アメーバを斜めに貫く1本と、短い枝1本だけ
+VEINS = [
+    ([(-0.45, 0.31), (-0.16, 0.11), (0.17, -0.12), (0.45, -0.31)],
+     [0.007, 0.022, 0.022, 0.007]),
+    ([(0.17, -0.12), (0.25, -0.36)], [0.016, 0.006]),
 ]
-R = BAR_H / 2.0                  # 行の角の丸み
 
 
-def coverage(px, py, n):
-    """その1点が白でどれだけ覆われるか（0.0〜1.0）を返す。"""
-    x, y = px / n, py / n
-    if math.hypot(x - DOT[0], y - DOT[1]) <= DOT[2]:
-        return 1.0
-    for cy, x2, op in BARS:
-        # 角を丸めた横棒（両端は半円）
-        cx = min(max(x, BAR_X + R), x2 - R)
-        if math.hypot(x - cx, y - cy) <= R:
-            return op
-    return 0.0
+def blob_r(th):
+    return BLOB_R * (1.0
+                     + 0.090 * math.sin(3.0 * th + 1.7)
+                     + 0.055 * math.sin(5.0 * th + 2.9)
+                     + 0.030 * math.sin(2.0 * th + 0.8))
+
+
+def seg_hit(px, py, a, b, wa, wb):
+    """折れ線の1区間に、その点が入っているか（半幅は端から端へ線形に細る）。"""
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    L2 = dx * dx + dy * dy
+    if L2 <= 0:
+        return False
+    t = ((px - ax) * dx + (py - ay) * dy) / L2
+    t = 0.0 if t < 0.0 else (1.0 if t > 1.0 else t)
+    cx, cy = ax + dx * t, ay + dy * t
+    return math.hypot(px - cx, py - cy) <= wa + (wb - wa) * t
+
+
+def coverage(x, y, n):
+    """墨で覆われるか。アメーバの内と脈は、重なったところで入れ替わる（XOR）。"""
+    c = (n - 1) / 2.0
+    px = (x - c) / n
+    py = (y - c) / n
+    inside = math.hypot(px, py) <= blob_r(math.atan2(py, px))
+    on = False
+    for pts, ws in VEINS:
+        for i in range(len(pts) - 1):
+            if seg_hit(px, py, pts[i], pts[i + 1], ws[i], ws[i + 1]):
+                on = True
+                break
+        if on:
+            break
+    return 1.0 if inside != on else 0.0
 
 
 def render(n):
@@ -66,25 +95,21 @@ def render(n):
     return rows
 
 
-def write_png(n, path):
-    raw = bytearray()
-    for row in render(n):
-        raw.append(0)      # フィルタなし
-        raw.extend(row)
+def png(path, rows, n):
+    raw = b"".join(b"\x00" + bytes(r) for r in rows)
 
     def chunk(tag, data):
-        return (struct.pack(">I", len(data)) + tag + data
-                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+        c = struct.pack(">I", len(data)) + tag + data
+        return c + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
 
-    png = (b"\x89PNG\r\n\x1a\n"
-           + chunk(b"IHDR", struct.pack(">IIBBBBB", n, n, 8, 2, 0, 0, 0))
-           + chunk(b"IDAT", zlib.compress(bytes(raw), 9))
-           + chunk(b"IEND", b""))
     with open(path, "wb") as f:
-        f.write(png)
-    print("%s  %dx%d  %d bytes" % (path, n, n, len(png)))
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", struct.pack(">IIBBBBB", n, n, 8, 2, 0, 0, 0)))
+        f.write(chunk(b"IDAT", zlib.compress(raw, 9)))
+        f.write(chunk(b"IEND", b""))
 
 
-if __name__ == "__main__":
-    for size in (180, 192, 512):
-        write_png(size, "%s/icon-%d-v%d.png" % (OUT, size, VERSION))
+for size in (180, 192, 512):
+    name = "icon-%d-v%d.png" % (size, VERSION)
+    png(os.path.join(OUT, name), render(size), size)
+    print("wrote", name)

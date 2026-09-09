@@ -3,9 +3,9 @@
  * ページ本体（HTML）はネットワーク優先。キャッシュ優先にすると直したものが端末に届かず、
  * 古い <link rel="apple-touch-icon"> を掴み続ける事故が起きる。
  * 画像などファイル名が変わらないものだけキャッシュ優先にする。 */
-var CACHE = 'murmur-v1';
+var CACHE = 'vein-v2';
 var SHELL = ['./', './index.html', './manifest.json',
-             './icon-180-v1.png', './icon-192-v1.png', './icon-512-v1.png'];
+             './icon-180-v2.png', './icon-192-v2.png', './icon-512-v2.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(

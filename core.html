@@ -1,21 +1,33 @@
-<title>ひとりごと</title>
+<title>鉱脈</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300;400;500&display=swap">
 <style>
-/* ── 夜の独り言の画面。黒地・白・白の透明度だけ（好きの種 / ember と同じ地） ── */
+/* ── 昼の紙の地。ember（黒地・残り火）や aloud と分けるため、白トーン＋鉱石の色 ──
+   --acc  照りのある赤錆＝掘り当てたもの（洞察・見出し）
+   --acc2 緑青＝次へ渡すもの（問い）
+   地は真っ白ではなく、わずかに温かい紙。字は黒ではなく墨。 */
+/* ── 紙と墨だけ。ember（黒地）と分けるために地は白トーン。
+   色で差を付けず、濃さ・大きさ・余白で差を付ける。 */
 :root{
-  color-scheme: dark;
-  --void:#08080A;
-  --void2:#0E0E12;
-  --lume:#FAFAF7;
-  --l86:rgba(250,250,247,.86);
-  --l58:rgba(250,250,247,.58);
-  --l40:rgba(250,250,247,.40);
-  --l26:rgba(250,250,247,.26);
-  --l16:rgba(250,250,247,.16);
-  --l09:rgba(250,250,247,.09);
-  --l05:rgba(250,250,247,.05);
+  color-scheme: light;
+  --void:#F4F2EE;          /* 紙 */
+  --void2:#FFFFFF;         /* 浮くもの（通知・面） */
+  --lume:#14120F;          /* 墨 */
+  --l86:rgba(20,18,15,.86);
+  --l58:rgba(20,18,15,.58);
+  --l40:rgba(20,18,15,.40);
+  --l26:rgba(20,18,15,.26);
+  --l16:rgba(20,18,15,.16);
+  --l09:rgba(20,18,15,.09);
+  --l05:rgba(20,18,15,.045);
+  /* 「アクセント」は色ではなく墨そのもの。使う場所だけ決めておく */
+  --acc:#14120F;
+  --acc86:rgba(20,18,15,.86);
+  --acc40:rgba(20,18,15,.34);
+  --acc16:rgba(20,18,15,.13);
+  --acc08:rgba(20,18,15,.05);
+  --acc2:rgba(20,18,15,.40);
   --f:"M PLUS 2",-apple-system,'Hiragino Sans','Helvetica Neue',sans-serif;
   --ease:cubic-bezier(.2,.9,.25,1);
 }
@@ -36,7 +48,7 @@ input{font:inherit;color:inherit;background:none;border:0}
 
 .dots{position:fixed;left:0;right:0;bottom:max(16px,env(safe-area-inset-bottom));display:flex;gap:7px;justify-content:center;z-index:40;pointer-events:none;transition:opacity .3s}
 .dots i{width:4px;height:4px;border-radius:50%;background:var(--l16);transition:background .3s,width .3s var(--ease)}
-.dots i.on{background:var(--l58);width:14px;border-radius:2px}
+.dots i.on{background:var(--acc);width:14px;border-radius:2px}
 body.kb .dots{opacity:0}
 
 /* ── 話す面 ── */
@@ -45,24 +57,41 @@ body.kb .dots{opacity:0}
   padding-bottom:calc(env(safe-area-inset-bottom) + 46px + var(--kb,0px));
   transition:padding-bottom .22s var(--ease)}
 
-/* 語の野。Do / Be / Have … の中に ◯ が潜んでいる */
+/* ── 語の野 ──
+   語は丸のまわりを回りつづけ、ときどき消えて別の語に入れ替わる。
+   下（問いのすぐ上）を通る語が focus になり、問いがひとりでに変わる。
+   語は触らない。触るのは真ん中の丸だけなので pointer-events は載せない。 */
 .field{position:relative;flex:1 1 auto;min-height:0;opacity:1;transition:opacity .3s}
 #speak[data-state="talk"] .field{opacity:0;pointer-events:none;position:absolute;inset:0}
-.word{position:absolute;transform:translate(-50%,-50%);font-size:13px;font-weight:400;
-  color:var(--l26);text-transform:lowercase;letter-spacing:.2em;padding:10px 8px;
-  transition:color .3s,transform .3s var(--ease)}
-.word.on{color:var(--l86)}
-.word:active{color:var(--l58)}
-.orb{position:absolute;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;
-  background:var(--lume);touch-action:manipulation;
-  animation:breathe 5.4s ease-in-out infinite;transition:transform .18s var(--ease)}
-.orb.press{transform:translate(-50%,-50%) scale(.93)}
-@keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.035)}}
-.ask{flex:0 0 auto;min-height:2.8em;display:flex;align-items:center;justify-content:center;
-  text-align:center;font-weight:300;font-size:16px;line-height:1.6;color:var(--l58);
-  word-break:auto-phrase;opacity:0;transition:opacity .34s}
+.word{position:absolute;left:50%;top:48%;pointer-events:none;
+  font-size:13px;font-weight:400;color:var(--l26);text-transform:lowercase;letter-spacing:.2em;
+  white-space:nowrap;will-change:transform;
+  transition:color .55s,opacity .7s var(--ease)}
+.word i{display:block;font-style:normal;transition:transform .55s var(--ease)}
+.word.on{color:var(--acc86)}
+.word.on i{transform:scale(1.42)}
+.word.out{opacity:0}
+.word.out i{transform:scale(.72)}
+
+/* 真ん中。平らな墨1色。輪郭だけがアメーバのように歪みつづける（生きている）。
+   球にもグラデーションにも影にもしない。輪も広げない。 */
+.orbwrap{position:absolute;left:50%;top:48%;width:96px;height:96px;margin:-48px 0 0 -48px}
+.orb{position:absolute;inset:0;padding:0;border:0;background:none;touch-action:manipulation;
+  transition:transform .2s var(--ease)}
+.orb svg{display:block;width:100%;height:100%;overflow:visible}
+.orb path{fill:var(--lume)}
+.orb.press{transform:scale(.94)}
+
+/* 問い。focus が移るたび、ひとりでに書き替わる */
+.ask{flex:0 0 auto;min-height:3.2em;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-weight:300;font-size:16.5px;line-height:1.62;color:var(--l58);
+  word-break:auto-phrase;opacity:0;transition:opacity .42s}
 .ask.on{opacity:1}
 #speak[data-state="talk"] .ask{display:none}
+
+@media (prefers-reduced-motion: reduce){
+  .word,.word i{transition:none}
+}
 
 /* 喋ったものが出る面。長い文でも全部が一度に目に入るよう、字を自分で縮める。
    読むためではなく「入っている」ことが見えるための字。 */
@@ -82,9 +111,9 @@ body.kb .dots{opacity:0}
   max-height:0;opacity:0;margin-top:0;overflow:hidden;
   transition:max-height .3s var(--ease),opacity .24s,margin-top .3s var(--ease)}
 #speak[data-state="talk"] .acts{max-height:80px;opacity:1;margin-top:18px}
-.keep{min-height:52px;padding:0 42px;border-radius:26px;border:1px solid var(--l26);background:var(--l05);
-  font-size:13px;font-weight:500;transition:background .2s,border-color .2s}
-.keep:active{background:var(--l09);border-color:var(--l40)}
+.keep{min-height:52px;padding:0 42px;border-radius:26px;border:0;background:var(--lume);color:var(--void);
+  font-size:13px;font-weight:500;transition:transform .18s var(--ease)}
+.keep:active{transform:scale(.97)}
 .thin{color:var(--l40);font-size:12px}
 .thin:active{color:var(--l86)}
 .tip{position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));
@@ -102,9 +131,9 @@ body.kb .tip{opacity:0}
 .tag{border:1px solid var(--l09);background:var(--l05);border-radius:14px;padding:4px 11px;
   font-size:12px;color:var(--l58);transition:color .2s,border-color .2s,background .2s}
 .tag em{font-style:normal;color:var(--l16);margin-left:5px;font-size:10px}
-.tag.on{color:var(--void);background:var(--lume);border-color:var(--lume)}
-.tag.on em{color:rgba(8,8,10,.45)}
-.tag.big{font-size:15px;padding:6px 14px;color:var(--l86)}
+.tag.on{color:var(--void2);background:var(--acc);border-color:var(--acc)}
+.tag.on em{color:rgba(255,255,255,.55)}
+.tag.big{font-size:15px;padding:6px 14px;color:var(--acc86);border-color:var(--acc16);background:var(--acc08)}
 .tag.mid{font-size:13.5px}
 
 .scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -114,18 +143,18 @@ body.kb .tip{opacity:0}
 .day span{font-size:9.5px;color:var(--l16)}
 .day hr{flex:1 1 auto;height:1px;border:0;background:var(--l09);margin:0}
 
-.card{display:block;width:100%;text-align:left;border:1px solid var(--l09);background:var(--l05);
+.card{display:block;width:100%;text-align:left;border:1px solid var(--l09);background:var(--void2);
   border-radius:16px;padding:15px 16px;margin-bottom:9px;transition:background .2s,border-color .2s}
 .card:active{background:var(--l09)}
-.card.fresh{border-color:var(--l26)}
+.card.fresh{border-color:var(--l40)}
 .card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.card .tags s{text-decoration:none;font-size:11.5px;color:var(--lume)}
-.card .tags s::before{content:"#";color:var(--l40);margin-right:1px}
+.card .tags s{text-decoration:none;font-size:11.5px;color:var(--acc)}
+.card .tags s::before{content:"#";color:var(--acc40);margin-right:1px}
 .card p{margin:0;font-size:14px;line-height:1.75;color:var(--l86);
   word-break:auto-phrase;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 .card .foot{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:9.5px;color:var(--l16)}
 .card .foot u{text-decoration:none;color:var(--l40)}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--lume);flex:0 0 auto}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex:0 0 auto}
 .dot.slow{animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
 .empty{text-align:center;color:var(--l16);font-size:11px;padding:64px 0}
@@ -143,6 +172,11 @@ body.kb .tip{opacity:0}
 .sheet{position:fixed;inset:0;z-index:60;background:var(--void);
   display:flex;flex-direction:column;transform:translateY(100%);transition:transform .38s var(--ease)}
 .sheet.on{transform:none}
+.mark{display:flex;align-items:baseline;gap:9px;margin-bottom:20px}
+.mark svg{flex:0 0 auto}
+.mark b{font-weight:400;font-size:15px;letter-spacing:.06em}
+.mark span{font-size:9.5px;color:var(--l26)}
+
 .sheet .top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
   padding:calc(env(safe-area-inset-top) + 14px) 22px 10px;font-size:10px;color:var(--l26)}
 .sheet .body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -152,13 +186,15 @@ body.kb .tip{opacity:0}
 
 .digest{width:100%;text-align:left;font-weight:300;font-size:18.5px;line-height:1.82;
   letter-spacing:-.005em;word-break:auto-phrase;white-space:pre-wrap;color:var(--lume)}
+.digest:active{color:var(--l58)}
 .hint{margin:18px 0 0;font-size:10px;color:var(--l16);text-align:center}
 .sec{margin-top:34px}
-.sec h4{margin:0 0 14px;font-weight:400;font-size:9.5px;color:var(--l26)}
+.sec h4{margin:0 0 14px;font-weight:400;font-size:9.5px;color:var(--l40)}
 .pick{margin-bottom:16px}
-.pick b{display:block;font-weight:400;font-size:15.5px;line-height:1.6;margin-bottom:4px;word-break:auto-phrase}
+.pick b{display:block;font-weight:500;font-size:15.5px;line-height:1.6;margin-bottom:4px;
+  color:var(--lume);word-break:auto-phrase}
 .pick span{font-size:13px;line-height:1.85;color:var(--l58);word-break:auto-phrase}
-.ask2{font-weight:300;font-size:16px;line-height:1.72;margin-bottom:14px;padding-left:14px;
+.ask2{font-weight:300;font-size:16px;line-height:1.72;margin-bottom:14px;padding:2px 0 2px 14px;
   border-left:1px solid var(--l26);word-break:auto-phrase}
 .note{font-size:13px;line-height:1.85;color:var(--l58);margin-bottom:14px;word-break:auto-phrase}
 .note b{font-weight:500;color:var(--l86)}
@@ -172,10 +208,11 @@ body.kb .tip{opacity:0}
 /* ── 通知 ── */
 .toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
   z-index:80;display:flex;align-items:center;gap:16px;max-width:min(88vw,26em);
-  padding:11px 17px;border-radius:20px;background:var(--void2);border:1px solid var(--l16);
+  padding:11px 17px;border-radius:20px;background:var(--void2);border:1px solid var(--l09);
+  box-shadow:0 6px 24px rgba(20,18,15,.10);
   font-size:12.5px;line-height:1.6;opacity:0;pointer-events:none;transition:opacity .26s,transform .26s var(--ease)}
 .toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-.toast button{flex:0 0 auto;font-size:11px;color:var(--l58)}
+.toast button{flex:0 0 auto;font-size:11px;color:var(--acc)}
 .fly{position:fixed;z-index:70;pointer-events:none;font-size:15px;color:var(--l86);white-space:nowrap;
   transition:transform .62s var(--ease),opacity .62s ease-in}
 </style>
@@ -198,6 +235,10 @@ body.kb .tip{opacity:0}
   <!-- ───────── 記録 ───────── -->
   <section class="pane" id="log">
     <div class="head">
+      <div class="mark">
+        <svg id="mark" width="24" height="24" viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <b>鉱脈</b><span class="lo">vein</span>
+      </div>
       <div class="count">
         <span><b id="cDays">0</b><i class="lo">days</i></span>
         <span><b id="cRow">0</b><i class="lo">in a row</i></span>
@@ -313,64 +354,308 @@ track.addEventListener('scroll',function(){
   if(i===pane)return;
   pane=i;
   for(var k=0;k<2;k++)dots[k].classList.toggle('on',k===pane);
+  if(pane===0)start();else stop();
 },{passive:true});
-window.addEventListener('resize',function(){place();goPane(pane,false)});
+window.addEventListener('resize',function(){measure();goPane(pane,false)});
 
 /* ───────── 語の野 ─────────
-   Do / Be / Have … 日記の入り口になる概念を単語で置く。押すとその入口の問いが出る。
-   その中に ◯ が潜んでいて、◯ を押すと記録が始まる。 */
-var WORDS=[
-  {w:'do',   q:'今日、実際に何をした？'},
-  {w:'be',   q:'今日、どんな状態でいた？'},
-  {w:'have', q:'いま何を持っていて、何が足りない？'},
-  {w:'feel', q:'いちばん強く動いたのは、どの瞬間？'},
-  {w:'meet', q:'誰と会って、何が残った？'},
-  {w:'want', q:'ほんとうに欲しいのは、なに？'},
-  {w:'lose', q:'今日、手放したもの・失ったものは？'},
-  {w:'learn',q:'知らなかった、と気づいたことは？'},
-  {w:'give', q:'誰に、何を渡した？'},
-  {w:'stuck',q:'どこで詰まった？なぜ動かない？'},
-  {w:'why',  q:'なぜ、それをやっている？'},
-  {w:'next', q:'明日いちばん先に手をつけるのは？'}
-];
-/* 位置は％。整列させず、◯ が語のあいだに紛れる置き方にする */
-var POS=[
-  [23,6],[68,4],[45,15],[13,25],[81,23],[33,36],
-  [73,42],[17,53],[53,66],[84,68],[27,80],[63,92]
-];
-var ORB=[50,48];
-var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='';
+   日記の入り口になる概念を、丸のまわりに回しておく。語は触らない（触るのは丸だけ）。
 
+   3つのことが同時に起きている:
+   1. 語は円軌道をゆっくり回る。半径・速さ・向き・揺れは語ごとに違う
+   2. ときどき1語が消えて、置いていない語に入れ替わる（同じ12語を見つづけない）
+   3. 下（問いのすぐ上）を通る語が focus になり、問いがひとりでに書き替わる
+
+   ◯ を押した瞬間の focus が、その日記の入口（seed）として残る。 */
+var WORDS=[
+  {w:'do',     q:'今日、実際に何をした？'},
+  {w:'be',     q:'今日、どんな状態でいた？'},
+  {w:'have',   q:'いま何を持っていて、何が足りない？'},
+  {w:'feel',   q:'いちばん強く動いたのは、どの瞬間？'},
+  {w:'meet',   q:'誰と会って、何が残った？'},
+  {w:'want',   q:'ほんとうに欲しいのは、なに？'},
+  {w:'lose',   q:'今日、手放したもの・失ったものは？'},
+  {w:'learn',  q:'知らなかった、と気づいたことは？'},
+  {w:'give',   q:'誰に、何を渡した？'},
+  {w:'stuck',  q:'どこで詰まった？なぜ動かない？'},
+  {w:'why',    q:'なぜ、それをやっている？'},
+  {w:'next',   q:'明日いちばん先に手をつけるのは？'},
+  {w:'notice', q:'誰も言っていないけれど、見えたことは？'},
+  {w:'change', q:'半年前と、何が変わった？'},
+  {w:'money',  q:'今日、お金はどこへ流れていた？'},
+  {w:'body',   q:'体はなんと言っている？'},
+  {w:'time',   q:'いちばん長く使った時間は、何に？'},
+  {w:'people', q:'世の中の人は、いま何を欲しがっている？'},
+  {w:'work',   q:'その仕事は、誰の何を動かした？'},
+  {w:'rule',   q:'当たり前だと思って従っている決まりは？'},
+  {w:'doubt',  q:'ほんとうかな、と思ったのはどれ？'},
+  {w:'build',  q:'いま何を作っている？なぜそれを？'},
+  {w:'fail',   q:'うまくいかなかったのは、どこから？'},
+  {w:'trust',  q:'誰を信じ、誰を測っている？'},
+  {w:'city',   q:'街で目についたものは？'},
+  {w:'read',   q:'読んだ・聞いたもので残ったのは？'},
+  {w:'price',  q:'それの値段は、何で決まっている？'},
+  {w:'quiet',  q:'静かなときに浮かんでくるのは？'},
+  {w:'anger',  q:'何に腹が立った？その下には何がある？'},
+  {w:'hope',   q:'そうなったらいい、と思うのは？'},
+  {w:'edge',   q:'いま、どの境目に立っている？'},
+  {w:'waste',  q:'無駄だったと思うのは、ほんとうに無駄？'}
+];
+
+/* 見えている語の数と、それぞれの道。
+   同心円にすると輪の間隔が狭いところで数珠つなぎになり、
+   楕円を傾けると縦長の道が横幅に潰されて真ん中へ寄ってしまう。
+   ここでは「縦横の伸びが語ごとに違う楕円 ＋ ゆっくり流れる中心」でばらけさせている。 */
+var SLOTS=[
+  {rx:.08,ry:.34,sp: .000130},
+  {rx:.92,ry:.10,sp:-.000101},
+  {rx:.34,ry:.76,sp: .000086},
+  {rx:.66,ry:.52,sp:-.000119},
+  {rx:.14,ry:.96,sp: .000071},
+  {rx:.78,ry:.30,sp:-.000094},
+  {rx:.48,ry:.66,sp:-.000112},
+  {rx:1.0,ry:.46,sp: .000079},
+  {rx:.26,ry:.56,sp:-.000068},
+  {rx:.58,ry:.88,sp: .000106},
+  {rx:.86,ry:.72,sp: .000092}
+];
+var FOCUS_TURN=4200;        /* 何ミリ秒ごとに focus を次の語へ渡すか */
+var SWAP_MS=6800;           /* 何ミリ秒ごとに1語を入れ替えるか */
+
+var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='';
+var live=[],RX=0,RY=0,focusI=-1,askShown='',raf=null,lastT=0,beat=null,swapping=false,focusAt=0;
+var blobPath=null;
+
+/* ───────── 真ん中のアメーバ ─────────
+   円ではなく、9点の半径がそれぞれ違う周期で伸び縮みする閉じた曲線。
+   点を Catmull-Rom で結んでベジェにするので、角が出ない。
+   平らな1色のまま、輪郭だけが動く。 */
+var BN=9,BR=33;
+function blobD(t){
+  var p=[],i;
+  for(i=0;i<BN;i++){
+    var a=i/BN*Math.PI*2;
+    var r=BR*(1
+      +0.090*Math.sin(t*0.00062+i*1.7)
+      +0.055*Math.sin(t*0.00041+i*2.9)
+      +0.030*Math.sin(t*0.00097+i*0.8));
+    p.push([50+Math.cos(a)*r,50+Math.sin(a)*r]);
+  }
+  var d='M'+p[0][0].toFixed(2)+' '+p[0][1].toFixed(2);
+  for(i=0;i<BN;i++){
+    var p0=p[(i-1+BN)%BN],p1=p[i],p2=p[(i+1)%BN],p3=p[(i+2)%BN];
+    d+='C'+(p1[0]+(p2[0]-p0[0])/6).toFixed(2)+' '+(p1[1]+(p2[1]-p0[1])/6).toFixed(2)
+      +','+(p2[0]-(p3[0]-p1[0])/6).toFixed(2)+' '+(p2[1]-(p3[1]-p1[1])/6).toFixed(2)
+      +','+p2[0].toFixed(2)+' '+p2[1].toFixed(2);
+  }
+  return d+'Z';
+}
+
+function measure(){
+  var w=field.clientWidth||window.innerWidth,h=field.clientHeight||window.innerHeight;
+  /* 横は字の箱がはみ出さないところまで、縦は面をだいたい使いきるところまで */
+  RX=Math.max(80,Math.min(w*0.40,w/2-38));
+  RY=Math.max(120,h*0.43);
+  for(var i=0;i<live.length;i++){
+    var l=live[i];
+    l.rx=72+l.rxf*(RX-72);
+    l.ry=120+l.ryf*(RY-120);
+  }
+}
+function freeWord(){
+  var used={};live.forEach(function(l){used[l.wi]=1});
+  var pool=[];
+  for(var i=0;i<WORDS.length;i++)if(!used[i])pool.push(i);
+  if(!pool.length)return Math.floor(Math.random()*WORDS.length);
+  return pool[Math.floor(Math.random()*pool.length)];
+}
 function place(){
-  field.innerHTML='';
-  WORDS.forEach(function(o,i){
-    var p=POS[i%POS.length];
-    var b=document.createElement('button');
-    b.className='word';b.textContent=o.w;
-    b.style.left=p[0]+'%';b.style.top=p[1]+'%';
-    b.addEventListener('click',function(){
-      var on=b.classList.contains('on');
-      field.querySelectorAll('.word.on').forEach(function(n){n.classList.remove('on')});
-      if(on){seed='';askEl.classList.remove('on');return}
-      b.classList.add('on');seed=o.w;
-      askEl.textContent=o.q;askEl.classList.add('on');
-    });
-    field.appendChild(b);
+  field.innerHTML='';live=[];focusI=-1;
+  SLOTS.forEach(function(sl,i){
+    var el=document.createElement('span');
+    el.className='word';
+    var inner=document.createElement('i');
+    el.appendChild(inner);
+    field.appendChild(el);
+    var l={el:el,inner:inner,wi:-1,rxf:sl.rx,ryf:sl.ry,sp:sl.sp,rx:0,ry:0,
+           a:(i/SLOTS.length)*Math.PI*2+Math.random()*.4,
+           p1:Math.random()*6.28,p2:Math.random()*6.28};
+    l.wi=freeWord();
+    live.push(l);
+    inner.textContent=WORDS[l.wi].w;
   });
+
+  var wrap=document.createElement('div');
+  wrap.className='orbwrap';
   orb=document.createElement('button');
-  orb.className='orb';orb.setAttribute('aria-label','押して、声に出す');
-  orb.style.left=ORB[0]+'%';orb.style.top=ORB[1]+'%';
+  orb.className='orb';orb.setAttribute('aria-label','押して、今日を声に出す');
+  orb.innerHTML='<svg viewBox="0 0 100 100" aria-hidden="true"><path d=""></path></svg>';
+  blobPath=orb.querySelector('path');
   orb.addEventListener('pointerdown',function(){orb.classList.add('press')});
   ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
     orb.addEventListener(ev,function(){orb.classList.remove('press')});
   });
   orb.addEventListener('click',openInput);
-  field.appendChild(orb);
+  wrap.appendChild(orb);
+  field.appendChild(wrap);
+
+  measure();
+  if(blobPath)blobPath.setAttribute('d',blobD(performance.now()));
+  draw2(performance.now());
+  /* 立ち上げ直後は、いちばん下に近い語へ無条件で focus を渡す（問いの空白を作らない） */
+  var b=-1,bd=1e9;
+  for(var i2=0;i2<live.length;i2++){
+    var d2=dist(i2);
+    if(d2<bd){bd=d2;b=i2}
+  }
+  focusTo(b);
+  if(reduced)rotateFocusSlowly();else start();
+}
+
+function setAsk(q){
+  if(q===askShown)return;
+  var first=!askShown;
+  askShown=q;
+  if(first){askEl.textContent=q;askEl.classList.add('on');return}
+  askEl.classList.remove('on');
+  setTimeout(function(){
+    if(askShown!==q)return;
+    askEl.textContent=q;askEl.classList.add('on');
+  },260);
+}
+function focusTo(i){
+  if(i===focusI)return;
+  focusAt=performance.now();
+  if(focusI>=0&&live[focusI])live[focusI].el.classList.remove('on');
+  focusI=i;
+  if(i<0)return;
+  live[i].el.classList.add('on');
+  setAsk(WORDS[live[i].wi].q);
+}
+
+/* 速さが違うので、放っておくと語同士が重なって読めなくなる。
+   半径の近いものが角度で近づいたときだけ、そっと押し合う。 */
+function spread(dt){
+  for(var i=0;i<live.length;i++)for(var j=i+1;j<live.length;j++){
+    var a=live[i],b=live[j];
+    if(a.x===undefined||b.x===undefined)continue;
+    var dx=a.x-b.x,dy=a.y-b.y;
+    if(Math.abs(dy)>32||Math.abs(dx)>84)continue;      /* 字の箱ぶん */
+    var g=Math.atan2(Math.sin(a.a-b.a),Math.cos(a.a-b.a));
+    var s2=g>=0?1:-1;
+    var push=0.00026*dt*s2;
+    a.a+=push;b.a-=push;
+  }
+}
+
+/* 位置を置くだけ。1フレームぶん。
+   楕円の上を進みながら、中心そのものがゆっくり流れるので、同じ道を二度通らない。 */
+var DX=13,DY=26;
+function draw2(t){
+  for(var i=0;i<live.length;i++){
+    var l=live[i];
+    var x=Math.cos(l.a)*l.rx+DX*Math.sin(t*0.000205+l.p1);
+    var y=Math.sin(l.a)*l.ry+DY*Math.sin(t*0.000163+l.p2);
+    l.x=x;l.y=y;
+    l.el.style.transform='translate(-50%,-50%) translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px)';
+  }
+}
+/* 下を通っている語へ focus を渡す */
+/* 画面のいちばん下のあたり（問いのすぐ上）からの遠さ */
+function dist(i){
+  var l=live[i];
+  if(l.x===undefined)return 1e9;
+  return Math.hypot(l.x*0.75,l.y-RY*0.86);
+}
+function pickFocus(t){
+  if(t-focusAt<FOCUS_TURN)return;
+  var best=-1,bd=1e9;
+  for(var i=0;i<live.length;i++){
+    if(i===focusI)continue;
+    var d=dist(i);
+    if(d<bd){bd=d;best=i}
+  }
+  if(best>=0)focusTo(best);
+}
+/* どこから出てくるか。他の語からいちばん離れて見える角度を選ぶ */
+function openAngle(self){
+  var best=0,bs=-1;
+  for(var k=0;k<16;k++){
+    var a=k/16*Math.PI*2;
+    var x=Math.cos(a)*self.rx, y=Math.sin(a)*self.ry;
+    var near=1e9;
+    for(var i=0;i<live.length;i++){
+      var l=live[i];
+      if(l===self||l.x===undefined)continue;
+      var d=Math.hypot(l.x-x,(l.y-y)*2.2);   /* 縦に近いほど重なって見える */
+      if(d<near)near=d;
+    }
+    if(y>RY*0.55)near*=0.35;                 /* いま focus のあたりには湧かせない */
+    if(near>bs){bs=near;best=a}
+  }
+  return best;
+}
+
+/* 1語だけ、いま focus から遠いものを消して別の語に替える */
+function swapOne(){
+  if(swapping)return;
+  var cand=-1,fd=0;
+  for(var i=0;i<live.length;i++){
+    if(i===focusI)continue;
+    var d=dist(i);
+    if(d>fd){fd=d;cand=i}
+  }
+  if(cand<0)return;
+  swapping=true;
+  var l=live[cand];
+  l.el.classList.add('out');
+  setTimeout(function(){
+    l.wi=freeWord();
+    l.inner.textContent=WORDS[l.wi].w;
+    l.a=openAngle(l);
+    l.ph=Math.random()*6.28;
+    draw2(performance.now());
+    l.el.classList.remove('out');
+    swapping=false;
+  },760);
+}
+
+function running(){
+  return !document.hidden && pane===0 && speak.getAttribute('data-state')==='idle' && !openId;
+}
+var half=false;
+function frame(t){
+  raf=null;
+  if(!running()){lastT=0;return}
+  var dt=lastT?Math.min(t-lastT,120):16;
+  lastT=t;
+  for(var i=0;i<live.length;i++)live[i].a+=live[i].sp*dt;
+  spread(dt);
+  draw2(t);
+  half=!half;
+  if(half&&blobPath)blobPath.setAttribute('d',blobD(t));
+  pickFocus(t);
+  raf=requestAnimationFrame(frame);
+}
+function start(){
+  if(!beat)beat=setInterval(function(){if(running())swapOne()},SWAP_MS);
+  if(reduced||raf||!running())return;
+  lastT=0;
+  raf=requestAnimationFrame(frame);
+}
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null}lastT=0}
+/* 動かさない設定のときは、位置は固定して問いだけ移す */
+function rotateFocusSlowly(){
+  var i=0;
+  focusTo(0);
+  setInterval(function(){if(running()){i=(i+1)%live.length;focusTo(i)}},7000);
 }
 
 /* iOS は、押したのと同じ処理の中で focus しないとキーボードが出ない。
    setTimeout を挟むと開かないので、ここは必ず同期で書く。 */
 function openInput(){
+  seed=(focusI>=0&&live[focusI])?WORDS[live[focusI].wi].w:'';
+  stop();
   speak.setAttribute('data-state','talk');
   $('tip').textContent='';
   try{
@@ -386,6 +671,7 @@ function closeInput(){
   speak.setAttribute('data-state','idle');
   try{said.blur()}catch(e){}
   $('tip').textContent=state.entries.length?'':'press';
+  start();
 }
 
 /* 長く喋るので、読ませる字ではなく「入っている」ことが見える字にする。
@@ -420,8 +706,7 @@ $('keepBtn').addEventListener('click',function(){
   state.entries.push(e);save();
   said.textContent='';$('mLen').textContent='';
   closeInput();
-  field.querySelectorAll('.word.on').forEach(function(n){n.classList.remove('on')});
-  seed='';askEl.classList.remove('on');
+  seed='';
   fly(t);
   draw();
   shape(e);
@@ -463,6 +748,7 @@ document.addEventListener('visibilitychange',function(){
     if(speak.getAttribute('data-state')==='talk'&&!text())closeInput();
   }
   hiddenAt=0;
+  start();
 });
 
 /* ───────── Claude（整形と洞察） ─────────
@@ -717,12 +1003,14 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 var sheet=$('sheet'),openId='';
 function openSheet(e){
   openId=e.id;
+  stop();
   sheet.classList.add('on');sheet.setAttribute('aria-hidden','false');
   track.classList.add('lock');
   drawSheet(e);
 }
 function closeSheet(){
   openId='';
+  if(pane===0)start();
   sheet.classList.remove('on');sheet.setAttribute('aria-hidden','true');
   track.classList.remove('lock');
 }
@@ -797,6 +1085,16 @@ function sec(title,html){
   return s;
 }
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openId)closeSheet()});
+
+/* ロゴ。アイコンと同じ形（アメーバを脈が貫き、内側では地の色に反転する） */
+(function(){
+  var m=$('mark');if(!m)return;
+  var seam='M4 92 L34 66 L66 34 L96 8';
+  m.innerHTML='<defs><clipPath id="mkc"><path d="'+blobD(0)+'"/></clipPath></defs>'+
+    '<path d="'+blobD(0)+'" fill="currentColor"/>'+
+    '<path d="'+seam+'" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>'+
+    '<path d="'+seam+'" fill="none" stroke="var(--void)" stroke-width="6" stroke-linecap="round" clip-path="url(#mkc)"/>';
+})();
 
 /* ───────── 立ち上げ ───────── */
 place();
