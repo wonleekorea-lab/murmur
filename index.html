@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>ひとりごと</title>
+<meta name="description" content="だらだら喋った今日を、箇条書きの原本と洞察に変えて積む音声日記。">
+<meta name="theme-color" content="#08080A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="murmur">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="./icon-180-v1.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="./icon-180-v1.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192-v1.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512-v1.png">
+<style>html,body{background:#08080A}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+2:wght@300;400;500&display=swap">
+<style>
+/* ── 夜の独り言の画面。黒地・白・白の透明度だけ（好きの種 / ember と同じ地） ── */
+:root{
+  color-scheme: dark;
+  --void:#08080A;
+  --void2:#0E0E12;
+  --lume:#FAFAF7;
+  --l86:rgba(250,250,247,.86);
+  --l58:rgba(250,250,247,.58);
+  --l40:rgba(250,250,247,.40);
+  --l26:rgba(250,250,247,.26);
+  --l16:rgba(250,250,247,.16);
+  --l09:rgba(250,250,247,.09);
+  --l05:rgba(250,250,247,.05);
+  --f:"M PLUS 2",-apple-system,'Hiragino Sans','Helvetica Neue',sans-serif;
+  --ease:cubic-bezier(.2,.9,.25,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--void);color:var(--lume);font-family:var(--f);overscroll-behavior:none}
+body{font-size:15px;font-weight:400;line-height:1.7;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit;color:inherit;background:none;border:0}
+:focus-visible{outline:1px solid var(--l58);outline-offset:3px}
+/* 英字ラベルの共通の置き方（読ませるためではなく、添えるために置く） */
+.lo{text-transform:lowercase;letter-spacing:.28em;text-indent:.28em}
+
+/* ── 2面トラック：左=話す 右=記録 ── */
+.track{display:flex;height:100dvh;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.track::-webkit-scrollbar{display:none}
+.track.lock{overflow-x:hidden}
+.pane{position:relative;flex:0 0 100%;height:100dvh;scroll-snap-align:center;scroll-snap-stop:always;overflow:hidden}
+
+.dots{position:fixed;left:0;right:0;bottom:max(16px,env(safe-area-inset-bottom));display:flex;gap:7px;justify-content:center;z-index:40;pointer-events:none;transition:opacity .3s}
+.dots i{width:4px;height:4px;border-radius:50%;background:var(--l16);transition:background .3s,width .3s var(--ease)}
+.dots i.on{background:var(--l58);width:14px;border-radius:2px}
+body.kb .dots{opacity:0}
+
+/* ── 話す面 ── */
+#speak{display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 10px) 20px calc(env(safe-area-inset-bottom) + 46px);
+  padding-bottom:calc(env(safe-area-inset-bottom) + 46px + var(--kb,0px));
+  transition:padding-bottom .22s var(--ease)}
+
+/* 語の野。Do / Be / Have … の中に ◯ が潜んでいる */
+.field{position:relative;flex:1 1 auto;min-height:0;opacity:1;transition:opacity .3s}
+#speak[data-state="talk"] .field{opacity:0;pointer-events:none;position:absolute;inset:0}
+.word{position:absolute;transform:translate(-50%,-50%);font-size:13px;font-weight:400;
+  color:var(--l26);text-transform:lowercase;letter-spacing:.2em;padding:10px 8px;
+  transition:color .3s,transform .3s var(--ease)}
+.word.on{color:var(--l86)}
+.word:active{color:var(--l58)}
+.orb{position:absolute;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;
+  background:var(--lume);touch-action:manipulation;
+  animation:breathe 5.4s ease-in-out infinite;transition:transform .18s var(--ease)}
+.orb.press{transform:translate(-50%,-50%) scale(.93)}
+@keyframes breathe{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.035)}}
+.ask{flex:0 0 auto;min-height:2.8em;display:flex;align-items:center;justify-content:center;
+  text-align:center;font-weight:300;font-size:16px;line-height:1.6;color:var(--l58);
+  word-break:auto-phrase;opacity:0;transition:opacity .34s}
+.ask.on{opacity:1}
+#speak[data-state="talk"] .ask{display:none}
+
+/* 喋ったものが出る面。長い文でも全部が一度に目に入るよう、字を自分で縮める。
+   読むためではなく「入っている」ことが見えるための字。 */
+.said{flex:1 1 auto;min-height:0;width:100%;overflow:hidden;
+  font-weight:300;font-size:20px;line-height:1.62;letter-spacing:-.005em;
+  word-break:auto-phrase;white-space:pre-wrap;
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 22px);
+  mask-image:linear-gradient(180deg,transparent 0,#000 22px);
+  display:none}
+#speak[data-state="talk"] .said{display:block}
+.said:focus{outline:none}
+.said:empty::before{content:"speak";color:var(--l16);font-size:12px;letter-spacing:.34em}
+.meta{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  height:0;opacity:0;overflow:hidden;font-size:10.5px;color:var(--l26);transition:opacity .3s}
+#speak[data-state="talk"] .meta{height:22px;opacity:1}
+.acts{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:26px;
+  max-height:0;opacity:0;margin-top:0;overflow:hidden;
+  transition:max-height .3s var(--ease),opacity .24s,margin-top .3s var(--ease)}
+#speak[data-state="talk"] .acts{max-height:80px;opacity:1;margin-top:18px}
+.keep{min-height:52px;padding:0 42px;border-radius:26px;border:1px solid var(--l26);background:var(--l05);
+  font-size:13px;font-weight:500;transition:background .2s,border-color .2s}
+.keep:active{background:var(--l09);border-color:var(--l40)}
+.thin{color:var(--l40);font-size:12px}
+.thin:active{color:var(--l86)}
+.tip{position:absolute;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));
+  text-align:center;font-size:10px;color:var(--l16);pointer-events:none}
+body.kb .tip{opacity:0}
+
+/* ── 記録面 ── */
+#log{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.head{flex:0 0 auto;padding:22px 22px 6px}
+.count{display:flex;align-items:baseline;gap:22px;margin-bottom:16px}
+.count b{font-weight:300;font-size:30px;letter-spacing:-.02em}
+.count span{font-size:9.5px;color:var(--l26)}
+.count i{font-style:normal;display:block}
+.cloud{display:flex;flex-wrap:wrap;gap:7px 10px;margin-bottom:4px}
+.tag{border:1px solid var(--l09);background:var(--l05);border-radius:14px;padding:4px 11px;
+  font-size:12px;color:var(--l58);transition:color .2s,border-color .2s,background .2s}
+.tag em{font-style:normal;color:var(--l16);margin-left:5px;font-size:10px}
+.tag.on{color:var(--void);background:var(--lume);border-color:var(--lume)}
+.tag.on em{color:rgba(8,8,10,.45)}
+.tag.big{font-size:15px;padding:6px 14px;color:var(--l86)}
+.tag.mid{font-size:13.5px}
+
+.scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:10px 22px calc(70px + env(safe-area-inset-bottom))}
+.day{display:flex;align-items:baseline;gap:10px;margin:22px 0 10px}
+.day b{font-weight:400;font-size:11px;color:var(--l40);letter-spacing:.06em}
+.day span{font-size:9.5px;color:var(--l16)}
+.day hr{flex:1 1 auto;height:1px;border:0;background:var(--l09);margin:0}
+
+.card{display:block;width:100%;text-align:left;border:1px solid var(--l09);background:var(--l05);
+  border-radius:16px;padding:15px 16px;margin-bottom:9px;transition:background .2s,border-color .2s}
+.card:active{background:var(--l09)}
+.card.fresh{border-color:var(--l26)}
+.card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.card .tags s{text-decoration:none;font-size:11.5px;color:var(--lume)}
+.card .tags s::before{content:"#";color:var(--l40);margin-right:1px}
+.card p{margin:0;font-size:14px;line-height:1.75;color:var(--l86);
+  word-break:auto-phrase;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.card .foot{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:9.5px;color:var(--l16)}
+.card .foot u{text-decoration:none;color:var(--l40)}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--lume);flex:0 0 auto}
+.dot.slow{animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
+.empty{text-align:center;color:var(--l16);font-size:11px;padding:64px 0}
+
+/* 端の設定（鍵）。記録面のいちばん下 */
+.key{margin:34px 0 8px;padding-top:18px;border-top:1px solid var(--l09)}
+.key h3{margin:0 0 10px;font-weight:400;font-size:9.5px;color:var(--l26)}
+.key .row{display:flex;gap:10px;align-items:center}
+.key input{flex:1 1 auto;min-width:0;border-bottom:1px solid var(--l16);padding:8px 2px;font-size:13px}
+.key input::placeholder{color:var(--l16)}
+.key button{font-size:11px;color:var(--l40);padding:8px 4px}
+.key p{margin:12px 0 0;font-size:10.5px;line-height:1.8;color:var(--l16)}
+
+/* ── ひらく面（1件の全体） ── */
+.sheet{position:fixed;inset:0;z-index:60;background:var(--void);
+  display:flex;flex-direction:column;transform:translateY(100%);transition:transform .38s var(--ease)}
+.sheet.on{transform:none}
+.sheet .top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 14px) 22px 10px;font-size:10px;color:var(--l26)}
+.sheet .body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:6px 22px calc(30px + env(safe-area-inset-bottom))}
+.sheet .foot{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:24px;
+  padding:12px 22px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--l09)}
+
+.digest{width:100%;text-align:left;font-weight:300;font-size:18.5px;line-height:1.82;
+  letter-spacing:-.005em;word-break:auto-phrase;white-space:pre-wrap;color:var(--lume)}
+.hint{margin:18px 0 0;font-size:10px;color:var(--l16);text-align:center}
+.sec{margin-top:34px}
+.sec h4{margin:0 0 14px;font-weight:400;font-size:9.5px;color:var(--l26)}
+.pick{margin-bottom:16px}
+.pick b{display:block;font-weight:400;font-size:15.5px;line-height:1.6;margin-bottom:4px;word-break:auto-phrase}
+.pick span{font-size:13px;line-height:1.85;color:var(--l58);word-break:auto-phrase}
+.ask2{font-weight:300;font-size:16px;line-height:1.72;margin-bottom:14px;padding-left:14px;
+  border-left:1px solid var(--l26);word-break:auto-phrase}
+.note{font-size:13px;line-height:1.85;color:var(--l58);margin-bottom:14px;word-break:auto-phrase}
+.note b{font-weight:500;color:var(--l86)}
+.origin{margin:0;padding:0;list-style:none}
+.origin li{position:relative;padding-left:14px;margin-bottom:7px;font-size:13px;line-height:1.8;color:var(--l58);word-break:auto-phrase}
+.origin li::before{content:"";position:absolute;left:0;top:.85em;width:5px;height:1px;background:var(--l26)}
+.fold{font-size:10px;color:var(--l26);padding:6px 0}
+.raw{font-size:11.5px;line-height:1.9;color:var(--l26);white-space:pre-wrap;word-break:auto-phrase;margin:8px 0 0}
+.busy{display:flex;align-items:center;gap:9px;font-size:10.5px;color:var(--l40);margin-top:20px}
+
+/* ── 通知 ── */
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,14px);
+  z-index:80;display:flex;align-items:center;gap:16px;max-width:min(88vw,26em);
+  padding:11px 17px;border-radius:20px;background:var(--void2);border:1px solid var(--l16);
+  font-size:12.5px;line-height:1.6;opacity:0;pointer-events:none;transition:opacity .26s,transform .26s var(--ease)}
+.toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{flex:0 0 auto;font-size:11px;color:var(--l58)}
+.fly{position:fixed;z-index:70;pointer-events:none;font-size:15px;color:var(--l86);white-space:nowrap;
+  transition:transform .62s var(--ease),opacity .62s ease-in}
+</style>
+
+<div class="track" id="track">
+
+  <!-- ───────── 話す ───────── -->
+  <section class="pane" id="speak" data-state="idle">
+    <div class="field" id="field"></div>
+    <div class="ask" id="ask"></div>
+    <div class="said" id="said" contenteditable="true" role="textbox" aria-label="話したこと" spellcheck="false"></div>
+    <div class="meta"><span id="mLen"></span><button class="thin" id="clear">clear</button></div>
+    <div class="acts">
+      <button class="keep lo" id="keepBtn">keep</button>
+      <button class="thin lo" id="dropBtn">close</button>
+    </div>
+    <div class="tip lo" id="tip"></div>
+  </section>
+
+  <!-- ───────── 記録 ───────── -->
+  <section class="pane" id="log">
+    <div class="head">
+      <div class="count">
+        <span><b id="cDays">0</b><i class="lo">days</i></span>
+        <span><b id="cRow">0</b><i class="lo">in a row</i></span>
+        <span><b id="cTag">0</b><i class="lo">insights</i></span>
+      </div>
+      <div class="cloud" id="cloud"></div>
+    </div>
+    <div class="scroll" id="list"></div>
+  </section>
+
+</div>
+
+<div class="dots" id="dots" aria-hidden="true"><i class="on"></i><i></i></div>
+
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div class="top">
+    <span id="sWhen"></span>
+    <button class="thin lo" id="sClose">close</button>
+  </div>
+  <div class="body" id="sBody"></div>
+  <div class="foot" id="sFoot"></div>
+</div>
+
+<div class="toast" id="toast" role="status">
+  <span id="toastMsg"></span><button id="toastAct" hidden></button>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+var KEY='murmur_state_v1';
+var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ───────── 日付（ローカル固定・UTCずれなし） ───────── */
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function today(){return ymd(new Date())}
+function nowIso(){
+  var d=new Date(),o=-d.getTimezoneOffset(),s=o<0?'-':'+',a=Math.abs(o);
+  return ymd(d)+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')
+    +s+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0');
+}
+var WD=['日','月','火','水','木','金','土'];
+function dayLabel(day){
+  var p=day.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);
+  var t=today();
+  if(day===t)return '今日';
+  var y=new Date();y.setDate(y.getDate()-1);
+  if(day===ymd(y))return '昨日';
+  return (+p[1])+'月'+(+p[2])+'日 '+WD[d.getDay()];
+}
+function hhmm(iso){var m=/T(\d\d:\d\d)/.exec(iso||'');return m?m[1]:''}
+function uid(){return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+
+/* ───────── 保存 ───────── */
+function blank(){return {version:1,entries:[],settings:{key:''}}}
+var mem={},volatile=false,warned=false;
+var store={
+  get:function(k){try{return localStorage.getItem(k)}catch(e){volatile=true;return k in mem?mem[k]:null}},
+  set:function(k,v){try{localStorage.setItem(k,v)}catch(e){volatile=true;mem[k]=v}}
+};
+var state=(function load(){
+  var raw=store.get(KEY);
+  if(!raw)return blank();
+  try{
+    var s=JSON.parse(raw);
+    if(!s||!Array.isArray(s.entries))throw new Error('shape');
+    s.version=1;
+    s.settings=s.settings&&typeof s.settings==='object'?s.settings:{};
+    s.settings.key=String(s.settings.key||'');
+    s.entries.forEach(function(e){
+      e.raw=String(e.raw||'');
+      e.lines=Array.isArray(e.lines)?e.lines:[];
+      e.digest=String(e.digest||'');
+      e.tags=Array.isArray(e.tags)?e.tags:[];
+      e.picks=Array.isArray(e.picks)?e.picks:[];
+      e.asks=Array.isArray(e.asks)?e.asks:[];
+      e.notes=Array.isArray(e.notes)?e.notes:[];
+      e.status=e.status||'draft';           // draft → read → kept
+      e.day=e.day||(e.createdAt||'').slice(0,10)||today();
+      e.busy=false;                          // 処理中は保存しない（開き直しで固まらないよう）
+    });
+    return s;
+  }catch(err){
+    store.set(KEY+'_backup_'+Date.now(),raw);
+    setTimeout(function(){say('保存データを読めなかった。退避して新しく始める。')},400);
+    return blank();
+  }
+})();
+function save(){
+  store.set(KEY,JSON.stringify(state,function(k,v){return k==='busy'?undefined:v}));
+  if(volatile&&!warned){warned=true;setTimeout(function(){say('この画面ではデータが残らない。ホーム画面に追加して使って。')},600)}
+}
+function find(id){for(var i=0;i<state.entries.length;i++)if(state.entries[i].id===id)return state.entries[i];return null}
+
+/* ───────── 通知 ───────── */
+var toast=$('toast'),toastMsg=$('toastMsg'),toastAct=$('toastAct'),toastT=null;
+function say(msg,label,fn){
+  toastMsg.textContent=msg;
+  if(label){toastAct.hidden=false;toastAct.textContent=label;toastAct.onclick=function(){hideToast();fn()}}
+  else{toastAct.hidden=true;toastAct.onclick=null}
+  toast.classList.add('on');
+  clearTimeout(toastT);toastT=setTimeout(hideToast,label?6000:3000);
+}
+function hideToast(){toast.classList.remove('on')}
+
+/* ───────── 面の移動 ───────── */
+var track=$('track'),dots=$('dots').children,pane=0;
+function goPane(i,smooth){track.scrollTo({left:track.clientWidth*i,behavior:smooth===false?'auto':'smooth'})}
+track.addEventListener('scroll',function(){
+  var w=track.clientWidth||1,i=Math.round(track.scrollLeft/w);
+  i=Math.max(0,Math.min(1,i));
+  if(i===pane)return;
+  pane=i;
+  for(var k=0;k<2;k++)dots[k].classList.toggle('on',k===pane);
+},{passive:true});
+window.addEventListener('resize',function(){place();goPane(pane,false)});
+
+/* ───────── 語の野 ─────────
+   Do / Be / Have … 日記の入り口になる概念を単語で置く。押すとその入口の問いが出る。
+   その中に ◯ が潜んでいて、◯ を押すと記録が始まる。 */
+var WORDS=[
+  {w:'do',   q:'今日、実際に何をした？'},
+  {w:'be',   q:'今日、どんな状態でいた？'},
+  {w:'have', q:'いま何を持っていて、何が足りない？'},
+  {w:'feel', q:'いちばん強く動いたのは、どの瞬間？'},
+  {w:'meet', q:'誰と会って、何が残った？'},
+  {w:'want', q:'ほんとうに欲しいのは、なに？'},
+  {w:'lose', q:'今日、手放したもの・失ったものは？'},
+  {w:'learn',q:'知らなかった、と気づいたことは？'},
+  {w:'give', q:'誰に、何を渡した？'},
+  {w:'stuck',q:'どこで詰まった？なぜ動かない？'},
+  {w:'why',  q:'なぜ、それをやっている？'},
+  {w:'next', q:'明日いちばん先に手をつけるのは？'}
+];
+/* 位置は％。整列させず、◯ が語のあいだに紛れる置き方にする */
+var POS=[
+  [23,6],[68,4],[45,15],[13,25],[81,23],[33,36],
+  [73,42],[17,53],[53,66],[84,68],[27,80],[63,92]
+];
+var ORB=[50,48];
+var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='';
+
+function place(){
+  field.innerHTML='';
+  WORDS.forEach(function(o,i){
+    var p=POS[i%POS.length];
+    var b=document.createElement('button');
+    b.className='word';b.textContent=o.w;
+    b.style.left=p[0]+'%';b.style.top=p[1]+'%';
+    b.addEventListener('click',function(){
+      var on=b.classList.contains('on');
+      field.querySelectorAll('.word.on').forEach(function(n){n.classList.remove('on')});
+      if(on){seed='';askEl.classList.remove('on');return}
+      b.classList.add('on');seed=o.w;
+      askEl.textContent=o.q;askEl.classList.add('on');
+    });
+    field.appendChild(b);
+  });
+  orb=document.createElement('button');
+  orb.className='orb';orb.setAttribute('aria-label','押して、声に出す');
+  orb.style.left=ORB[0]+'%';orb.style.top=ORB[1]+'%';
+  orb.addEventListener('pointerdown',function(){orb.classList.add('press')});
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+    orb.addEventListener(ev,function(){orb.classList.remove('press')});
+  });
+  orb.addEventListener('click',openInput);
+  field.appendChild(orb);
+}
+
+/* iOS は、押したのと同じ処理の中で focus しないとキーボードが出ない。
+   setTimeout を挟むと開かないので、ここは必ず同期で書く。 */
+function openInput(){
+  speak.setAttribute('data-state','talk');
+  $('tip').textContent='';
+  try{
+    said.focus();
+    var r=document.createRange();r.selectNodeContents(said);r.collapse(false);
+    var s=window.getSelection();s.removeAllRanges();s.addRange(r);
+  }catch(e){}
+  fit();
+  if(!state.entries.length&&!hinted){hinted=true;say('キーボードの🎤を押して、そのまま喋る')}
+}
+var hinted=false;
+function closeInput(){
+  speak.setAttribute('data-state','idle');
+  try{said.blur()}catch(e){}
+  $('tip').textContent=state.entries.length?'':'press';
+}
+
+/* 長く喋るので、読ませる字ではなく「入っている」ことが見える字にする。
+   全体が一度に目に入るところまで自分で縮める（下限 8px）。 */
+function fit(){
+  said.style.fontSize='';
+  var box=said.clientHeight;if(!box)return;
+  var size=20;
+  said.style.fontSize=size+'px';
+  while(said.scrollHeight>box&&size>8){size-=size>13?1:0.5;said.style.fontSize=size+'px'}
+  said.scrollTop=said.scrollHeight;
+}
+said.addEventListener('input',function(){
+  fit();
+  var n=text().length;
+  $('mLen').textContent=n?n+'字':'';
+});
+function text(){return (said.innerText||said.textContent||'').replace(/\u00a0/g,' ').replace(/[ \t]+\n/g,'\n').trim()}
+
+$('dropBtn').addEventListener('click',closeInput);
+$('clear').addEventListener('click',function(){
+  var keep=text();
+  said.textContent='';$('mLen').textContent='';fit();
+  if(keep)say('消した','undo',function(){said.textContent=keep;fit();$('mLen').textContent=keep.length+'字'});
+});
+
+$('keepBtn').addEventListener('click',function(){
+  var t=text();
+  if(t.length<4){say('ひとことだけでも');return}
+  var e={id:uid(),createdAt:nowIso(),day:today(),seed:seed,raw:t,
+         lines:[],digest:'',tags:[],picks:[],asks:[],notes:[],status:'draft'};
+  state.entries.push(e);save();
+  said.textContent='';$('mLen').textContent='';
+  closeInput();
+  field.querySelectorAll('.word.on').forEach(function(n){n.classList.remove('on')});
+  seed='';askEl.classList.remove('on');
+  fly(t);
+  draw();
+  shape(e);
+});
+
+/* 置いた言葉が記録の方角へ飛ぶ */
+function fly(t){
+  if(reduced)return;
+  var el=document.createElement('div');el.className='fly';
+  el.textContent=t.length>12?t.slice(0,12)+'…':t;
+  el.style.left='50%';el.style.top='50%';el.style.transform='translate(-50%,-50%) scale(1)';el.style.opacity='1';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    el.style.transform='translate('+(window.innerWidth*0.62)+'px,-52%) scale(.34)';el.style.opacity='0';
+  })});
+  setTimeout(function(){el.remove()},700);
+}
+
+/* キーボードのぶんだけ下を空ける。dvh はキーボードに反応しないので visualViewport を見る */
+function syncKb(){
+  var vv=window.visualViewport;if(!vv)return;
+  var kb=Math.max(0,Math.round(window.innerHeight-vv.height-vv.offsetTop));
+  document.documentElement.style.setProperty('--kb',kb+'px');
+  document.body.classList.toggle('kb',kb>80);
+  fit();
+}
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',syncKb);
+  window.visualViewport.addEventListener('scroll',syncKb);
+}
+said.addEventListener('blur',function(){setTimeout(syncKb,80)});
+
+/* 全画面アプリは閉じても再読み込みされず、前の画面のまま戻る。
+   20秒以上離れていたら、書きかけが無いときだけ待機状態へ戻す。 */
+var hiddenAt=0;
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){hiddenAt=Date.now();return}
+  if(hiddenAt&&Date.now()-hiddenAt>20000){
+    if(speak.getAttribute('data-state')==='talk'&&!text())closeInput();
+  }
+  hiddenAt=0;
+});
+
+/* ───────── Claude（整形と洞察） ─────────
+   鍵はこの端末の localStorage にだけ置き、api.anthropic.com 以外へは送らない。
+   鍵が無いときは手元の規則だけで整形する（アプリは鍵なしでも通しで使える）。 */
+var MODEL='claude-opus-5';
+function apiKey(){return String(state.settings.key||'').trim()}
+
+function ask(system,user,opt){
+  opt=opt||{};
+  var key=apiKey();
+  if(!key)return Promise.reject({kind:'nokey'});
+  return fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      // ブラウザから直接呼ぶための許可。これが無いと CORS で弾かれる
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:MODEL,
+      max_tokens:opt.max||8000,
+      output_config:{effort:opt.effort||'low'},
+      system:system,
+      messages:[{role:'user',content:user}]
+    })
+  }).then(function(r){
+    if(!r.ok)return r.text().then(function(b){throw {kind:'http',status:r.status,body:b}});
+    return r.json();
+  }).then(function(j){
+    if(j.stop_reason==='refusal')throw {kind:'refusal'};
+    var t=(j.content||[]).filter(function(b){return b.type==='text'})
+                         .map(function(b){return b.text}).join('\n');
+    return t;
+  });
+}
+/* 前後に文が付いても拾えるように、最初の { から最後の } までを見る */
+function json(t){
+  var a=t.indexOf('{'),b=t.lastIndexOf('}');
+  if(a<0||b<=a)throw new Error('no json');
+  return JSON.parse(t.slice(a,b+1));
+}
+function strs(v,n){
+  if(!Array.isArray(v))return [];
+  return v.map(function(x){return String(x==null?'':x).trim()}).filter(Boolean).slice(0,n||20);
+}
+function pairs(v,n){
+  if(!Array.isArray(v))return [];
+  return v.map(function(x){
+    if(!x)return null;
+    if(typeof x==='string')return {t:x.trim(),d:''};
+    var t=String(x.t||x.title||'').trim(),d=String(x.d||x.detail||x.body||'').trim();
+    return (t||d)?{t:t,d:d}:null;
+  }).filter(Boolean).slice(0,n||6);
+}
+
+var SHAPE_SYS=[
+'あなたは、話し手の独り言を本人が読み返せる一次情報に整える書き起こし係。',
+'',
+'守ること:',
+'- 内容を評価・解釈・要約しない。言われたことだけを残す。',
+'- 言いよどみ（えー、なんか、あの、みたいな、的な）と言い直しの前半は落とす。',
+'- 話された順は変えない。事実も気持ちも取りこぼさない。',
+'- 1項目1事。日本語として読める文にする。体言止めでよい。',
+'- 話者が言っていないことは足さない。判断も助言もしない。',
+'',
+'JSONだけを返す。前後に文を付けない。',
+'{"lines":["…"],"digest":"…"}',
+'lines: 箇条書きの原本。数の上限なし。話された全部を入れる。',
+'digest: 3〜5文。その日に何があって何を考えたかが一読で分かるまとめ。'
+].join('\n');
+
+var REFLECT_SYS=[
+'あなたは、日記を書く人の探究を進める相棒。渡された箇条書きの中から、本人がまだ言葉にしていない発見を拾う。',
+'',
+'守ること:',
+'- picks（洞察）: 本人の言葉の中にある発見を2〜4個。t は短い見出し、d は何がなぜ面白いかを1〜2文。',
+'  一般論や説教を書かない。本人が言っていないことを本人の考えとして書かない。',
+'- asks（次の問い）: 次の探究テーマにつながる問いを2〜3個。答えではなく問い。抽象的にしない。',
+'- notes（知識の補足）: 事実だけを1〜3個。t は名前や語、d は1〜2文。不確かなら入れない（空配列でよい）。',
+'- tags（洞察の見出し）: 1〜3個。# は付けない。2〜10文字の日本語の名詞句。',
+'  分類名（仕事・健康・人間関係）ではなく、その日固有の概念にする。',
+'',
+'JSONだけを返す。前後に文を付けない。',
+'{"tags":[""],"picks":[{"t":"","d":""}],"asks":[""],"notes":[{"t":"","d":""}]}'
+].join('\n');
+
+/* 鍵が無いときの整形。喋りを文で割って、言いよどみを落とすだけ。 */
+var FILL=/^(えーと|えっと|えー|あのー|あの|うーん|んー|なんか|そうだな|やっぱり|ていうか|というか|まあ|ま)[、,。\s]*/;
+function shapeLocal(raw){
+  var parts=String(raw).replace(/\r/g,'').split(/[。\n]+|(?<=[！？!?])/);
+  var lines=[];
+  parts.forEach(function(p){
+    var s=p.replace(/\s+/g,' ').trim();
+    for(var i=0;i<3;i++)s=s.replace(FILL,'');
+    s=s.trim();
+    if(s.length<3)return;
+    if(!/[。！？!?、]$/.test(s))s+='。';
+    lines.push(s);
+  });
+  if(!lines.length)lines=[String(raw).trim()];
+  return {lines:lines,digest:lines.slice(0,4).join('')};
+}
+/* 鍵が無いときの見出し。語の切り出しだけで、洞察は作らない（作れないものを作らない） */
+function tagsLocal(lines){
+  var text=lines.join(' ');
+  var re=/[\u3005\u3006\u4E00-\u9FFF\u30A1-\u30FF\uFF66-\uFF9FA-Za-z]{2,10}/g,m,c={};
+  while((m=re.exec(text))!==null)c[m[0]]=(c[m[0]]||0)+1;
+  return Object.keys(c).sort(function(a,b){return c[b]-c[a]||b.length-a.length}).slice(0,2);
+}
+
+function shape(e){
+  e.busy=true;draw();
+  var user='つぎの独り言を整える。'+(e.seed?'（入口の語: '+e.seed+'）':'')+'\n\n'+e.raw;
+  ask(SHAPE_SYS,user,{effort:'low',max:8000}).then(function(t){
+    var o=json(t);
+    e.lines=strs(o.lines,200);
+    e.digest=String(o.digest||'').trim();
+    if(!e.lines.length||!e.digest)throw new Error('empty');
+    e.status='draft';e.busy=false;save();draw();
+  }).catch(function(err){
+    var o=shapeLocal(e.raw);
+    e.lines=o.lines;e.digest=o.digest;e.busy=false;save();draw();
+    if(err&&err.kind==='nokey')say('鍵がまだ無いので、そのまま並べた');
+    else say(why(err)+' — 手元の整形で置いた','retry',function(){shape(e)});
+  });
+}
+
+function reflect(e){
+  e.busy=true;drawSheet(e);draw();
+  var user=['日付: '+e.day,e.seed?'入口の語: '+e.seed:'','','箇条書き:',
+            e.lines.map(function(l){return '- '+l}).join('\n'),'','まとめ:',e.digest]
+           .filter(function(x){return x!==''}).join('\n');
+  ask(REFLECT_SYS,user,{effort:'high',max:6000}).then(function(t){
+    var o=json(t);
+    e.picks=pairs(o.picks,4);
+    e.asks=strs(o.asks,3);
+    e.notes=pairs(o.notes,3);
+    e.tags=strs(o.tags,3).map(function(s){return s.replace(/^#/,'')});
+    if(!e.tags.length)e.tags=tagsLocal(e.lines);
+    if(e.status==='draft')e.status='read';
+    e.busy=false;save();drawSheet(e);draw();
+  }).catch(function(err){
+    e.busy=false;
+    if(err&&err.kind==='nokey'){
+      e.tags=tagsLocal(e.lines);
+      if(e.status==='draft')e.status='read';
+      save();drawSheet(e);draw();
+      say('洞察には鍵がいる。記録面のいちばん下に入れて。','key',function(){closeSheet();goPane(1);setTimeout(function(){$('keyIn').focus()},420)});
+    }else{
+      drawSheet(e);
+      say(why(err),'retry',function(){reflect(e)});
+    }
+  });
+}
+function why(err){
+  if(!err)return 'つながらなかった';
+  if(err.kind==='refusal')return '返答が断られた';
+  if(err.kind==='http'){
+    if(err.status===401)return '鍵が通らなかった';
+    if(err.status===429)return '呼びすぎ。少し待って';
+    if(err.status>=500)return 'むこうが落ちている';
+    return 'エラー '+err.status;
+  }
+  return 'つながらなかった';
+}
+
+/* ───────── 記録の面 ───────── */
+var filter='';
+function kept(){return state.entries.filter(function(e){return e.status==='kept'})}
+function tagCount(){
+  var c={};
+  kept().forEach(function(e){e.tags.forEach(function(t){c[t]=(c[t]||0)+1})});
+  return c;
+}
+function streak(){
+  var days={};state.entries.forEach(function(e){days[e.day]=1});
+  var d=new Date(),n=0;
+  if(!days[ymd(d)]){d.setDate(d.getDate()-1);if(!days[ymd(d)])return 0}
+  while(days[ymd(d)]){n++;d.setDate(d.getDate()-1)}
+  return n;
+}
+function draw(){
+  var days={};state.entries.forEach(function(e){days[e.day]=1});
+  var tc=tagCount(),tags=Object.keys(tc);
+  $('cDays').textContent=Object.keys(days).length;
+  $('cRow').textContent=streak();
+  $('cTag').textContent=tags.length;
+
+  var cloud=$('cloud');cloud.innerHTML='';
+  tags.sort(function(a,b){return tc[b]-tc[a]||(a<b?-1:1)}).slice(0,14).forEach(function(t){
+    var b=document.createElement('button');
+    b.className='tag'+(tc[t]>=3?' big':tc[t]===2?' mid':'')+(filter===t?' on':'');
+    b.innerHTML='#'+esc(t)+(tc[t]>1?'<em>'+tc[t]+'</em>':'');
+    b.addEventListener('click',function(){filter=filter===t?'':t;draw()});
+    cloud.appendChild(b);
+  });
+
+  var list=$('list');list.innerHTML='';
+  var rows=state.entries.filter(function(e){return !filter||e.tags.indexOf(filter)>=0});
+  rows=rows.slice().sort(function(a,b){return a.createdAt<b.createdAt?1:-1});
+  if(!rows.length){
+    var p=document.createElement('div');p.className='empty';
+    p.textContent=filter?'この見出しはまだ1件':(state.entries.length?'':'◯ を押して、今日を喋る');
+    list.appendChild(p);
+  }
+  var last='';
+  rows.forEach(function(e){
+    if(e.day!==last){
+      last=e.day;
+      var h=document.createElement('div');h.className='day';
+      h.innerHTML='<b>'+esc(dayLabel(e.day))+'</b><hr><span>'+esc(e.day)+'</span>';
+      list.appendChild(h);
+    }
+    var c=document.createElement('button');
+    c.className='card'+(e.status!=='kept'?' fresh':'');
+    var head=e.tags.length?'<div class="tags">'+e.tags.map(function(t){return '<s>'+esc(t)+'</s>'}).join('')+'</div>':'';
+    var body=e.busy?'<p>整えている…</p>':'<p>'+esc(e.digest||e.raw)+'</p>';
+    var mark=e.busy?'<i class="dot slow"></i>':(e.status==='draft'?'<i class="dot"></i>':'');
+    var st=e.status==='kept'?'':(e.status==='read'?'<u>まだ保存していない</u>':'<u>読んでいない</u>');
+    c.innerHTML=head+body+'<div class="foot">'+mark+'<span>'+hhmm(e.createdAt)+'</span>'+st+'</div>';
+    c.addEventListener('click',function(){openSheet(e)});
+    list.appendChild(c);
+  });
+
+  drawKey(list);
+}
+function drawKey(list){
+  var w=document.createElement('div');w.className='key';
+  w.innerHTML='<h3 class="lo">key</h3><div class="row">'+
+    '<input id="keyIn" type="password" inputmode="text" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">'+
+    '<button id="keySave" class="lo">save</button></div>'+
+    '<p>整形と洞察に Claude（'+MODEL+'）を使う。鍵はこの端末のブラウザにだけ残り、api.anthropic.com 以外へは送らない。'+
+    '鍵が無くても、喋った内容は箇条書きにして残る。</p>';
+  list.appendChild(w);
+  var input=$('keyIn');
+  input.value=apiKey()?'········································':'';
+  $('keySave').addEventListener('click',function(){
+    var v=input.value.trim();
+    if(/^·+$/.test(v))return;
+    if(!v){state.settings.key='';save();say('鍵を消した');draw();return}
+    state.settings.key=v;save();say('鍵を入れた');draw();
+  });
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+/* ───────── ひらく面 ─────────
+   まとめを押すと洞察が出る。洞察が出てから keep で日記として並ぶ。 */
+var sheet=$('sheet'),openId='';
+function openSheet(e){
+  openId=e.id;
+  sheet.classList.add('on');sheet.setAttribute('aria-hidden','false');
+  track.classList.add('lock');
+  drawSheet(e);
+}
+function closeSheet(){
+  openId='';
+  sheet.classList.remove('on');sheet.setAttribute('aria-hidden','true');
+  track.classList.remove('lock');
+}
+$('sClose').addEventListener('click',closeSheet);
+
+function drawSheet(e){
+  if(!e||e.id!==openId)return;
+  $('sWhen').textContent=dayLabel(e.day)+' '+hhmm(e.createdAt)+(e.seed?' · '+e.seed:'');
+  var b=$('sBody');b.innerHTML='';
+
+  var d=document.createElement('button');
+  d.className='digest';d.textContent=e.digest||e.raw;
+  d.addEventListener('click',function(){if(!e.busy&&!e.picks.length)reflect(e)});
+  b.appendChild(d);
+
+  if(e.busy){
+    var w=document.createElement('div');w.className='busy';
+    w.innerHTML='<i class="dot slow"></i><span>読んでいる…</span>';
+    b.appendChild(w);
+  }else if(!e.picks.length&&!e.asks.length){
+    var h=document.createElement('p');h.className='hint';
+    h.textContent=apiKey()?'↑ このまとめを押すと、洞察を拾う':'鍵を入れると、ここに洞察と次の問いが出る';
+    b.appendChild(h);
+  }
+
+  if(e.tags.length){
+    var t=document.createElement('div');t.className='cloud';t.style.margin='26px 0 0';
+    t.innerHTML=e.tags.map(function(x){return '<span class="tag">#'+esc(x)+'</span>'}).join('');
+    b.appendChild(t);
+  }
+  if(e.picks.length)b.appendChild(sec('found',e.picks.map(function(p){
+    return '<div class="pick"><b>'+esc(p.t)+'</b><span>'+esc(p.d)+'</span></div>'}).join('')));
+  if(e.asks.length)b.appendChild(sec('next',e.asks.map(function(a){
+    return '<div class="ask2">'+esc(a)+'</div>'}).join('')));
+  if(e.notes.length)b.appendChild(sec('notes',e.notes.map(function(n){
+    return '<div class="note"><b>'+esc(n.t)+'</b>　'+esc(n.d)+'</div>'}).join('')));
+
+  if(e.lines.length){
+    var o=document.createElement('div');o.className='sec';
+    o.innerHTML='<h4 class="lo">origin</h4><ul class="origin">'+
+      e.lines.map(function(l){return '<li>'+esc(l)+'</li>'}).join('')+'</ul>';
+    var f=document.createElement('button');f.className='fold lo';f.textContent='raw';
+    var raw=document.createElement('p');raw.className='raw';raw.hidden=true;raw.textContent=e.raw;
+    f.addEventListener('click',function(){raw.hidden=!raw.hidden});
+    o.appendChild(f);o.appendChild(raw);
+    b.appendChild(o);
+  }
+
+  var foot=$('sFoot');foot.innerHTML='';
+  if(e.status!=='kept'){
+    var k=document.createElement('button');k.className='keep lo';k.textContent='keep';
+    k.addEventListener('click',function(){
+      if(!e.tags.length&&!e.picks.length){reflect(e);return}
+      e.status='kept';save();draw();closeSheet();
+      say(e.tags.length?'#'+e.tags[0]+' で並べた':'並べた');
+    });
+    foot.appendChild(k);
+  }
+  var f2=document.createElement('button');f2.className='thin lo';f2.textContent='forget';
+  f2.addEventListener('click',function(){
+    say('この日記を消す？','yes',function(){
+      var i=state.entries.indexOf(e);
+      if(i>=0){var back=state.entries.splice(i,1)[0];save();draw();closeSheet();
+        say('消した','undo',function(){state.entries.push(back);save();draw()})}
+    });
+  });
+  foot.appendChild(f2);
+}
+function sec(title,html){
+  var s=document.createElement('div');s.className='sec';
+  s.innerHTML='<h4 class="lo">'+title+'</h4>'+html;
+  return s;
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openId)closeSheet()});
+
+/* ───────── 立ち上げ ───────── */
+place();
+draw();
+$('tip').textContent=state.entries.length?'':'press';
+goPane(0,false);
+/* 途中で閉じたまま整形が終わっていない下書きを、開き直したときに拾い直す */
+state.entries.forEach(function(e){if(!e.digest&&e.raw)shape(e)});
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    // updateViaCache:'none' を付けないと sw.js 自体が HTTP キャッシュから返り、
+    // 直したはずのものが端末に届かない状態が続く
+    navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'})
+      .then(function(reg){ reg.update(); })
+      .catch(function(){});
+  });
+}
+</script>
+</body>
+</html>

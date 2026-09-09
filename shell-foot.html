@@ -1,0 +1,13 @@
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    // updateViaCache:'none' を付けないと sw.js 自体が HTTP キャッシュから返り、
+    // 直したはずのものが端末に届かない状態が続く
+    navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'})
+      .then(function(reg){ reg.update(); })
+      .catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
