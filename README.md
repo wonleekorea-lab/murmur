@@ -47,12 +47,19 @@ python3 -m http.server 8930 --directory "murmur"
 
 ### iPhone に置く（本命）
 
-**https（または localhost）で開くこと。** `file://` では動かない。
-Safari で開き、共有メニューから「ホーム画面に追加」。`manifest.json` と `sw.js` があるので、
-追加後はアドレスバーのない全画面で立ち上がる（Sokugan / 好きの種 と同じ形）。
+**https://wonleekorea-lab.github.io/murmur/**
 
-GitHub Pages に出すなら、このディレクトリをそのままリポジトリ直下に置いて Pages を有効にする。
-`.nojekyll` を置いてあるので、ビルドは走らずファイルがそのまま配信される。
+上のURLを Safari で開き、共有メニューから「ホーム画面に追加」。
+`manifest.json` と `sw.js` があるので、追加後はアドレスバーのない全画面で立ち上がり、
+オフラインでも起動する（Sokugan / 好きの種 と同じ形）。
+
+**https（または localhost）でないと動かない。** `file://` ではキーボードのマイクも
+Service Worker も使えない。
+
+### 配信
+
+`wonleekorea-lab/murmur` の `main` ブランチ直下を GitHub Pages がそのまま配信する。
+`git push origin main` すれば1〜2分で反映される。`.nojekyll` があるのでビルドは走らない。
 
 ---
 
