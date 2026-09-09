@@ -157,22 +157,39 @@ body.kb .tip{opacity:0}
 
 .scroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:10px 22px calc(70px + env(safe-area-inset-bottom))}
-.day{display:flex;align-items:baseline;gap:10px;margin:22px 0 10px}
-.day b{font-weight:400;font-size:11px;color:var(--l40);letter-spacing:.06em}
-.day span{font-size:9.5px;color:var(--l16)}
-.day hr{flex:1 1 auto;height:1px;border:0;background:var(--l09);margin:0}
 
-.card{display:block;width:100%;text-align:left;border:1px solid var(--l09);background:var(--void2);
-  border-radius:16px;padding:15px 16px;margin-bottom:9px;transition:background .2s,border-color .2s}
-.card:active{background:var(--l09)}
-.card.fresh{border-color:var(--l40)}
-.card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.card .tags s{text-decoration:none;font-size:11.5px;color:var(--acc)}
-.card .tags s::before{content:"#";color:var(--acc40);margin-right:1px}
-.card p{margin:0;font-size:14px;line-height:1.75;color:var(--l86);
-  word-break:auto-phrase;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
-.card .foot{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:9.5px;color:var(--l16)}
-.card .foot u{text-decoration:none;color:var(--l40)}
+/* ── 記録＝日ごとの帯。1日を24時間の1本にして、書いた時刻に点を置く ──
+   1日に何度でも書けるので、点が増えていくことが見えるようにしてある。 */
+.axis{display:flex;justify-content:space-between;padding:2px 0 8px;
+  font-size:8.5px;letter-spacing:.06em;color:var(--l16)}
+.dayrow{margin:0 0 16px}
+.dh{display:flex;align-items:baseline;gap:9px;margin-bottom:5px}
+.dh b{font-weight:400;font-size:12px;color:var(--l58)}
+.dh span{font-size:9.5px;color:var(--l16)}
+.dh em{margin-left:auto;font-style:normal;font-size:9.5px;color:var(--l26)}
+.tr{position:relative;height:28px}
+.tr::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--l09)}
+.tr.now::before{background:var(--l16)}
+.tick{position:absolute;top:50%;width:1px;height:7px;margin-top:-3.5px;background:var(--l09)}
+.pt{position:absolute;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;
+  background:var(--void);border:1px solid var(--l40);transition:transform .18s var(--ease)}
+.pt.kept{background:var(--lume);border-color:var(--lume)}
+.pt.hit{box-shadow:0 0 0 3px var(--l09)}
+.pt.slow{animation:pulse 1.5s ease-in-out infinite}
+.pt:active{transform:scale(1.4)}
+.items{display:flex;flex-direction:column}
+.it{display:flex;gap:10px;width:100%;text-align:left;padding:7px 0;border-top:1px solid var(--l05)}
+.it:active{background:var(--l05)}
+.it u{flex:0 0 2.9em;text-decoration:none;font-size:9.5px;color:var(--l26);padding-top:2px}
+.it div{flex:1 1 auto;min-width:0}
+.it p{margin:0;font-size:13px;line-height:1.62;color:var(--l86);word-break:auto-phrase;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.it .tg{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.it .tg s{text-decoration:none;font-size:10.5px;color:var(--acc)}
+.it .tg s::before{content:"#";color:var(--acc40);margin-right:1px}
+.it .st{font-size:9.5px;color:var(--l26);margin-top:4px;display:block}
+.gap{display:flex;align-items:center;gap:9px;margin:0 0 16px;font-size:9px;color:var(--l16)}
+.gap hr{flex:1 1 auto;height:1px;border:0;background:var(--l05);margin:0}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex:0 0 auto}
 .dot.slow{animation:pulse 1.5s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
@@ -438,11 +455,13 @@ var SLOTS=[
   {rx:.58,ry:.88,sp: .000106},
   {rx:.86,ry:.72,sp: .000092}
 ];
-var FOCUS_TURN=4200;        /* 何ミリ秒ごとに focus を次の語へ渡すか */
+var FOCUS_TURN=4600;        /* 何ミリ秒ごとに focus を次の語へ渡すか */
+var NO_REPEAT=9;            /* 直近この数の語には focus を戻さない。画面に出ている語数より少なくしておく */
 var SWAP_MS=6800;           /* 何ミリ秒ごとに1語を入れ替えるか */
 
 var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='';
 var live=[],RX=0,RY=0,focusI=-1,askShown='',raf=null,lastT=0,beat=null,swapping=false,focusAt=0;
+var recent=[];              /* 最近 focus を当てた語（WORDS の番号） */
 var blobPath=null;
 
 /* ───────── 真ん中のアメーバ ─────────
@@ -483,10 +502,15 @@ function measure(){
 }
 function freeWord(){
   var used={};live.forEach(function(l){used[l.wi]=1});
-  var pool=[];
-  for(var i=0;i<WORDS.length;i++)if(!used[i])pool.push(i);
-  if(!pool.length)return Math.floor(Math.random()*WORDS.length);
-  return pool[Math.floor(Math.random()*pool.length)];
+  var fresh=[],pool=[];
+  for(var i=0;i<WORDS.length;i++){
+    if(used[i])continue;
+    pool.push(i);
+    if(recent.indexOf(i)<0)fresh.push(i);      /* 最近出したものは後回し */
+  }
+  var use=fresh.length?fresh:(pool.length?pool:null);
+  if(!use)return Math.floor(Math.random()*WORDS.length);
+  return use[Math.floor(Math.random()*use.length)];
 }
 function place(){
   field.innerHTML='';live=[];focusI=-1;
@@ -497,7 +521,7 @@ function place(){
     el.appendChild(inner);
     field.appendChild(el);
     var l={el:el,inner:inner,wi:-1,rxf:sl.rx,ryf:sl.ry,sp:sl.sp,rx:0,ry:0,
-           a:(i/SLOTS.length)*Math.PI*2+Math.random()*.4,
+           a:(i/SLOTS.length)*Math.PI*2+Math.random()*.4,born:performance.now()+i*90,
            p1:Math.random()*6.28,p2:Math.random()*6.28};
     l.wi=freeWord();
     live.push(l);
@@ -521,13 +545,8 @@ function place(){
   measure();
   if(blobPath)blobPath.setAttribute('d',blobD(performance.now()));
   draw2(performance.now());
-  /* 立ち上げ直後は、いちばん下に近い語へ無条件で focus を渡す（問いの空白を作らない） */
-  var b=-1,bd=1e9;
-  for(var i2=0;i2<live.length;i2++){
-    var d2=dist(i2);
-    if(d2<bd){bd=d2;b=i2}
-  }
-  focusTo(b);
+  /* 立ち上げ直後にひとつ当てておく（問いの空白を作らない）。場所は問わない */
+  focusTo(Math.floor(Math.random()*live.length));
   if(reduced)rotateFocusSlowly();else start();
 }
 
@@ -549,6 +568,8 @@ function focusTo(i){
   focusI=i;
   if(i<0)return;
   live[i].el.classList.add('on');
+  recent.push(live[i].wi);
+  while(recent.length>NO_REPEAT)recent.shift();
   setAsk(WORDS[live[i].wi].q);
 }
 
@@ -558,11 +579,12 @@ function spread(dt){
   for(var i=0;i<live.length;i++)for(var j=i+1;j<live.length;j++){
     var a=live[i],b=live[j];
     if(a.x===undefined||b.x===undefined)continue;
-    var dx=a.x-b.x,dy=a.y-b.y;
-    if(Math.abs(dy)>32||Math.abs(dx)>84)continue;      /* 字の箱ぶん */
+    var dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);
+    if(dy>40||dx>100)continue;                       /* 字の箱ぶん */
+    /* 近いほど強く。急に飛ばないよう、遠いところでは効かせない */
+    var f=(1-dx/100)*(1-dy/40);
     var g=Math.atan2(Math.sin(a.a-b.a),Math.cos(a.a-b.a));
-    var s2=g>=0?1:-1;
-    var push=0.00026*dt*s2;
+    var push=0.0024*f*dt*(g>=0?1:-1);
     a.a+=push;b.a-=push;
   }
 }
@@ -580,22 +602,30 @@ function draw2(t){
   }
 }
 /* 下を通っている語へ focus を渡す */
-/* 画面のいちばん下のあたり（問いのすぐ上）からの遠さ */
-function dist(i){
-  var l=live[i];
-  if(l.x===undefined)return 1e9;
-  return Math.hypot(l.x*0.75,l.y-RY*0.86);
-}
+/* focus は場所で選ばない。
+   下に近い語を選んでいたころは、光る語がいつも画面の下にいて、
+   同じ語に何度も戻るので問いが繰り返して見えていた。
+
+   いまは「最近当てていない語」の中から、
+   いま光っている語からいちばん離れて見えるものへ渡す。
+   結果として光は画面のあちこちへ飛び、問いは NO_REPEAT 回ぶん繰り返さない。 */
 function pickFocus(t){
   if(t-focusAt<FOCUS_TURN)return;
-  var best=-1,bd=1e9;
+  var fx=(focusI>=0&&live[focusI])?live[focusI].x:0;
+  var fy=(focusI>=0&&live[focusI])?live[focusI].y:0;
+  var best=-1,bd=-1,fallback=-1,fbAge=1e9;
   for(var i=0;i<live.length;i++){
-    if(i===focusI)continue;
-    var d=dist(i);
-    if(d<bd){bd=d;best=i}
+    if(i===focusI||live[i].x===undefined)continue;
+    var seen=recent.indexOf(live[i].wi);
+    if(seen<0){
+      var d=Math.hypot(live[i].x-fx,live[i].y-fy);
+      if(d>bd){bd=d;best=i}                   /* まだ当てていない語のうち、いちばん遠いもの */
+    }else if(seen<fbAge){fbAge=seen;fallback=i}  /* 全部が最近なら、いちばん昔のもの */
   }
+  if(best<0)best=fallback;
   if(best>=0)focusTo(best);
 }
+
 /* どこから出てくるか。他の語からいちばん離れて見える角度を選ぶ */
 function openAngle(self){
   var best=0,bs=-1;
@@ -609,7 +639,6 @@ function openAngle(self){
       var d=Math.hypot(l.x-x,(l.y-y)*2.2);   /* 縦に近いほど重なって見える */
       if(d<near)near=d;
     }
-    if(y>RY*0.55)near*=0.35;                 /* いま focus のあたりには湧かせない */
     if(near>bs){bs=near;best=a}
   }
   return best;
@@ -618,11 +647,10 @@ function openAngle(self){
 /* 1語だけ、いま focus から遠いものを消して別の語に替える */
 function swapOne(){
   if(swapping)return;
-  var cand=-1,fd=0;
+  var cand=-1,old=1e18;
   for(var i=0;i<live.length;i++){
     if(i===focusI)continue;
-    var d=dist(i);
-    if(d>fd){fd=d;cand=i}
+    if(live[i].born<old){old=live[i].born;cand=i}
   }
   if(cand<0)return;
   swapping=true;
@@ -630,6 +658,7 @@ function swapOne(){
   l.el.classList.add('out');
   setTimeout(function(){
     l.wi=freeWord();
+    l.born=performance.now();
     l.inner.textContent=WORDS[l.wi].w;
     l.a=openAngle(l);
     l.ph=Math.random()*6.28;
@@ -970,32 +999,96 @@ function draw(){
 
   var list=$('list');list.innerHTML='';
   var rows=state.entries.filter(function(e){return !filter||e.tags.indexOf(filter)>=0});
-  rows=rows.slice().sort(function(a,b){return a.createdAt<b.createdAt?1:-1});
   if(!rows.length){
     var p=document.createElement('div');p.className='empty';
-    p.textContent=filter?'この見出しはまだ1件':(state.entries.length?'':'◯ を押して、今日を喋る');
+    p.textContent=filter?'この見出しはまだ無い':(state.entries.length?'':'◯ を押して、今日を喋る');
     list.appendChild(p);
+    drawKey(list);
+    return;
   }
-  var last='';
-  rows.forEach(function(e){
-    if(e.day!==last){
-      last=e.day;
-      var h=document.createElement('div');h.className='day';
-      h.innerHTML='<b>'+esc(dayLabel(e.day))+'</b><hr><span>'+esc(e.day)+'</span>';
-      list.appendChild(h);
-    }
-    var c=document.createElement('button');
-    c.className='card'+(e.status!=='kept'?' fresh':'');
-    var head=e.tags.length?'<div class="tags">'+e.tags.map(function(t){return '<s>'+esc(t)+'</s>'}).join('')+'</div>':'';
-    var body=e.busy?'<p>整えている…</p>':'<p>'+esc(e.digest||e.raw)+'</p>';
-    var mark=e.busy?'<i class="dot slow"></i>':(e.status==='draft'?'<i class="dot"></i>':'');
-    var st=e.status==='kept'?'':(e.status==='read'?'<u>まだ保存していない</u>':'<u>読んでいない</u>');
-    c.innerHTML=head+body+'<div class="foot">'+mark+'<span>'+hhmm(e.createdAt)+'</span>'+st+'</div>';
-    c.addEventListener('click',function(){openSheet(e)});
-    list.appendChild(c);
-  });
+
+  var ax=document.createElement('div');ax.className='axis';
+  ax.innerHTML='<span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>';
+  list.appendChild(ax);
+
+  var byDay={};
+  rows.forEach(function(e){(byDay[e.day]=byDay[e.day]||[]).push(e)});
+  var have=Object.keys(byDay).sort();
+  var oldest=have[0],cur=today(),gap=0,guard=0;
+  /* 書いた日だけを詰めて出すと、間が空いたことが見えない。
+     空いた日はまとめて1行にして、続いているかどうかが分かるようにする。 */
+  while(cur>=oldest&&guard++<500){
+    if(byDay[cur]){
+      if(gap){list.appendChild(gapRow(gap));gap=0}
+      list.appendChild(dayRow(cur,byDay[cur]));
+    }else gap++;
+    cur=prevDay(cur);
+  }
+  if(gap)list.appendChild(gapRow(gap));
 
   drawKey(list);
+}
+function prevDay(iso){
+  var p=iso.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);
+  d.setDate(d.getDate()-1);
+  return ymd(d);
+}
+function minutes(iso){
+  var m=/T(\d\d):(\d\d)/.exec(iso||'');
+  return m?(+m[1])*60+(+m[2]):12*60;
+}
+function gapRow(n){
+  var g=document.createElement('div');g.className='gap';
+  g.innerHTML='<hr><span>'+n+'日</span><hr>';
+  return g;
+}
+function dayRow(day,list){
+  var es=list.slice().sort(function(a,b){return minutes(a.createdAt)-minutes(b.createdAt)});
+  var wrap=document.createElement('div');wrap.className='dayrow';
+
+  var h=document.createElement('div');h.className='dh';
+  var p=day.split('-'),lab=dayLabel(day);
+  var sub=/^\d/.test(lab)?'':((+p[1])+'/'+(+p[2]));   /* 今日・昨日だけ、日付を添える */
+  h.innerHTML='<b>'+esc(lab)+'</b>'+(sub?'<span>'+sub+'</span>':'')+
+              (es.length>1?'<em>'+es.length+'</em>':'');
+  wrap.appendChild(h);
+
+  var tr=document.createElement('div');tr.className='tr'+(day===today()?' now':'');
+  [6,12,18].forEach(function(hh){
+    var t=document.createElement('i');t.className='tick';t.style.left=(hh/24*100)+'%';
+    tr.appendChild(t);
+  });
+  /* 同じころに書いたものが重なって1点に見えないよう、近いものは上下に散らす */
+  var lastX=-99,step=0;
+  es.forEach(function(e){
+    var x=minutes(e.createdAt)/1440*100;
+    x=Math.max(2.5,Math.min(97.5,x));
+    if(x-lastX<5)step=step>0?-1:(step<0?2:1);else step=0;
+    lastX=x;
+    var b=document.createElement('button');
+    b.className='pt'+(e.status==='kept'?' kept':'')+(e.busy?' slow':'')+
+               (filter&&e.tags.indexOf(filter)>=0?' hit':'');
+    b.style.left=x+'%';
+    b.style.marginTop=(-5.5+step*8)+'px';
+    b.setAttribute('aria-label',hhmm(e.createdAt)+'　'+(e.digest||e.raw).slice(0,24));
+    b.addEventListener('click',function(){openSheet(e)});
+    tr.appendChild(b);
+  });
+  wrap.appendChild(tr);
+
+  var items=document.createElement('div');items.className='items';
+  es.forEach(function(e){
+    var it=document.createElement('button');it.className='it';
+    var tg=e.tags.length?'<div class="tg">'+e.tags.map(function(t){return '<s>'+esc(t)+'</s>'}).join('')+'</div>':'';
+    var st=e.busy?'<span class="st">整えている…</span>':
+           (e.status==='draft'?'<span class="st">まだ読んでいない</span>':
+           (e.status==='read'?'<span class="st">まだ保存していない</span>':''));
+    it.innerHTML='<u>'+hhmm(e.createdAt)+'</u><div><p>'+esc(e.digest||e.raw)+'</p>'+tg+st+'</div>';
+    it.addEventListener('click',function(){openSheet(e)});
+    items.appendChild(it);
+  });
+  wrap.appendChild(items);
+  return wrap;
 }
 function drawKey(list){
   var w=document.createElement('div');w.className='key';
