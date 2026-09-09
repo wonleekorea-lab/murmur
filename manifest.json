@@ -1,7 +1,7 @@
 {
-  "name": "鉱脈 — 声で掘る日記",
-  "short_name": "vein",
-  "description": "声で今日を掘り、その中の筋を見つける日記。",
+  "name": "journaling — 声で書く日記",
+  "short_name": "journaling",
+  "description": "声で日記を書き、その中から洞察を掘り出す。",
   "lang": "ja",
   "start_url": "./",
   "scope": "./",
