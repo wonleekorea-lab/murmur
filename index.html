@@ -142,11 +142,14 @@ body.kb .tip{opacity:0}
 /* ── 記録面 ── */
 #log{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
 .head{flex:0 0 auto;padding:22px 22px 6px}
-.count{display:flex;align-items:baseline;gap:22px;margin-bottom:16px}
-.count b{font-weight:300;font-size:30px;letter-spacing:-.02em}
+.count{display:flex;align-items:baseline;gap:20px;margin-bottom:14px}
+.count b{font-weight:300;font-size:26px;letter-spacing:-.02em}
 .count span{font-size:9.5px;color:var(--l26)}
 .count i{font-style:normal;display:block}
-.cloud{display:flex;flex-wrap:wrap;gap:7px 10px;margin-bottom:4px}
+.cloud{display:flex;flex-wrap:nowrap;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;padding-bottom:2px}
+.cloud::-webkit-scrollbar{display:none}
+.cloud .tag{flex:0 0 auto}
 .tag{border:1px solid var(--l09);background:var(--l05);border-radius:14px;padding:4px 11px;
   font-size:12px;color:var(--l58);transition:color .2s,border-color .2s,background .2s}
 .tag em{font-style:normal;color:var(--l16);margin-left:5px;font-size:10px}
@@ -160,8 +163,13 @@ body.kb .tip{opacity:0}
 
 /* ── 記録＝日ごとの帯。1日を24時間の1本にして、書いた時刻に点を置く ──
    1日に何度でも書けるので、点が増えていくことが見えるようにしてある。 */
-.axis{display:flex;justify-content:space-between;padding:2px 0 8px;
+.axis{display:flex;justify-content:space-between;margin-top:10px;padding:0 0 6px;
+  border-bottom:1px solid var(--l09);
   font-size:8.5px;letter-spacing:.06em;color:var(--l16)}
+.mon{display:flex;align-items:center;gap:10px;margin:22px 0 14px}
+.mon:first-child{margin-top:10px}
+.mon b{font-weight:400;font-size:10px;letter-spacing:.08em;color:var(--l40)}
+.mon hr{flex:1 1 auto;height:1px;border:0;background:var(--l09);margin:0}
 .dayrow{margin:0 0 16px}
 .dh{display:flex;align-items:baseline;gap:9px;margin-bottom:5px}
 .dh b{font-weight:400;font-size:12px;color:var(--l58)}
@@ -188,6 +196,7 @@ body.kb .tip{opacity:0}
 .it .tg s{text-decoration:none;font-size:10.5px;color:var(--acc)}
 .it .tg s::before{content:"#";color:var(--acc40);margin-right:1px}
 .it .st{font-size:9.5px;color:var(--l26);margin-top:4px;display:block}
+.yet{font-size:10px;color:var(--l16);padding:2px 0 0}
 .gap{display:flex;align-items:center;gap:9px;margin:0 0 16px;font-size:9px;color:var(--l16)}
 .gap hr{flex:1 1 auto;height:1px;border:0;background:var(--l05);margin:0}
 .dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex:0 0 auto}
@@ -195,23 +204,33 @@ body.kb .tip{opacity:0}
 @keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
 .empty{text-align:center;color:var(--l16);font-size:11px;padding:64px 0}
 
-/* 端の設定（鍵）。記録面のいちばん下 */
-.key{margin:34px 0 8px;padding-top:18px;border-top:1px solid var(--l09)}
-.key h3{margin:0 0 10px;font-weight:400;font-size:9.5px;color:var(--l26)}
-.key .row{display:flex;gap:10px;align-items:center}
-.key input{flex:1 1 auto;min-width:0;border-bottom:1px solid var(--l16);padding:8px 2px;font-size:13px}
-.key input::placeholder{color:var(--l16)}
-.key button{font-size:11px;color:var(--l40);padding:8px 4px}
-.key p{margin:12px 0 0;font-size:10.5px;line-height:1.8;color:var(--l16)}
+/* ── 設定の面（鍵はここだけ。日記の並びには置かない） ── */
+.set h3{margin:0 0 10px;font-weight:400;font-size:9.5px;color:var(--l40)}
+.set .row{display:flex;gap:10px;align-items:center}
+.set input{flex:1 1 auto;min-width:0;border-bottom:1px solid var(--l16);padding:9px 2px;font-size:13px}
+.set input::placeholder{color:var(--l16)}
+.set p{margin:12px 0 0;font-size:11px;line-height:1.85;color:var(--l40)}
+.set .blk{margin-bottom:34px}
+.set .wide{width:100%;min-height:46px;border:1px solid var(--l16);border-radius:23px;
+  font-size:12px;letter-spacing:.06em;transition:background .2s}
+.set .wide:active{background:var(--l05)}
 
 /* ── ひらく面（1件の全体） ── */
 .sheet{position:fixed;inset:0;z-index:60;background:var(--void);
   display:flex;flex-direction:column;transform:translateY(100%);transition:transform .38s var(--ease)}
 .sheet.on{transform:none}
-.mark{display:flex;align-items:baseline;gap:9px;margin-bottom:20px}
+.mark{display:flex;align-items:center;gap:9px;margin-bottom:18px}
 .mark svg{flex:0 0 auto}
 .mark b{font-weight:400;font-size:14px}
-.mark span{font-size:9.5px;color:var(--l26)}
+/* さりげなく置くだけの印。▢＝うつす、···＝設定 */
+.ic{flex:0 0 auto;width:30px;height:30px;display:grid;place-items:center;color:var(--l26);
+  font-size:12px;line-height:1;letter-spacing:.12em;transition:color .2s}
+.ic:active{color:var(--lume)}
+.ic.sq{margin-left:auto}
+.ic.sq i{display:block;width:11px;height:11px;border:1px solid currentColor;border-radius:2px}
+.ic.sq.done i{background:currentColor}
+.tops{display:flex;align-items:center;gap:4px}
+.tops .ic{width:26px;height:26px}
 
 .sheet .top{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
   padding:calc(env(safe-area-inset-top) + 14px) 22px 10px;font-size:10px;color:var(--l26)}
@@ -272,8 +291,10 @@ body.kb .tip{opacity:0}
   <section class="pane" id="log">
     <div class="head">
       <div class="mark">
-        <svg id="mark" width="24" height="24" viewBox="0 0 100 100" aria-hidden="true"></svg>
+        <svg id="mark" width="22" height="22" viewBox="0 0 100 100" aria-hidden="true"></svg>
         <b class="lo">journaling</b>
+        <button class="ic sq" id="copyAll" aria-label="日記を全部うつす"><i></i></button>
+        <button class="ic" id="openSet" aria-label="設定">···</button>
       </div>
       <div class="count">
         <span><b id="cDays">0</b><i class="lo">days</i></span>
@@ -281,6 +302,9 @@ body.kb .tip{opacity:0}
         <span><b id="cTag">0</b><i class="lo">insights</i></span>
       </div>
       <div class="cloud" id="cloud"></div>
+      <div class="axis" id="axis" aria-hidden="true">
+        <span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>
+      </div>
     </div>
     <div class="scroll" id="list"></div>
   </section>
@@ -292,10 +316,21 @@ body.kb .tip{opacity:0}
 <div class="sheet" id="sheet" aria-hidden="true">
   <div class="top">
     <span id="sWhen"></span>
-    <button class="thin lo" id="sClose">close</button>
+    <span class="tops">
+      <button class="ic sq" id="sCopy" aria-label="この日記をうつす"><i></i></button>
+      <button class="thin lo" id="sClose">close</button>
+    </span>
   </div>
   <div class="body" id="sBody"></div>
   <div class="foot" id="sFoot"></div>
+</div>
+
+<div class="sheet" id="set" aria-hidden="true">
+  <div class="top">
+    <span class="lo">settings</span>
+    <button class="thin lo" id="setClose">close</button>
+  </div>
+  <div class="body" id="setBody"></div>
 </div>
 
 <div class="toast" id="toast" role="status">
@@ -947,7 +982,10 @@ function reflect(e){
       e.tags=tagsLocal(e.lines);
       if(e.status==='draft')e.status='read';
       save();drawSheet(e);draw();
-      say('洞察には鍵がいる。記録面のいちばん下に入れて。','key',function(){closeSheet();goPane(1);setTimeout(function(){$('keyIn').focus()},420)});
+      say('洞察には鍵がいる。設定（···）に入れて。','key',function(){
+        closeSheet();goPane(1);
+        setTimeout(function(){openSet();setTimeout(function(){try{$('keyIn').focus()}catch(e){}},380)},260);
+      });
     }else{
       drawSheet(e);
       say(why(err),'retry',function(){reflect(e)});
@@ -1003,13 +1041,10 @@ function draw(){
     var p=document.createElement('div');p.className='empty';
     p.textContent=filter?'この見出しはまだ無い':(state.entries.length?'':'◯ を押して、今日を喋る');
     list.appendChild(p);
-    drawKey(list);
+    $('axis').style.visibility='hidden';
     return;
   }
-
-  var ax=document.createElement('div');ax.className='axis';
-  ax.innerHTML='<span>0</span><span>6</span><span>12</span><span>18</span><span>24</span>';
-  list.appendChild(ax);
+  $('axis').style.visibility='';
 
   var byDay={};
   rows.forEach(function(e){(byDay[e.day]=byDay[e.day]||[]).push(e)});
@@ -1017,16 +1052,23 @@ function draw(){
   var oldest=have[0],cur=today(),gap=0,guard=0;
   /* 書いた日だけを詰めて出すと、間が空いたことが見えない。
      空いた日はまとめて1行にして、続いているかどうかが分かるようにする。 */
+  var mon='';
+  if(!filter&&!byDay[cur]){
+    mon=cur.slice(0,7);
+    list.appendChild(monRow(mon));
+    list.appendChild(dayRow(cur,[]));
+    cur=prevDay(cur);
+  }
   while(cur>=oldest&&guard++<500){
     if(byDay[cur]){
       if(gap){list.appendChild(gapRow(gap));gap=0}
+      var m=cur.slice(0,7);
+      if(m!==mon){mon=m;list.appendChild(monRow(m))}   /* 月の区切り＝長くなったときの背骨 */
       list.appendChild(dayRow(cur,byDay[cur]));
     }else gap++;
     cur=prevDay(cur);
   }
   if(gap)list.appendChild(gapRow(gap));
-
-  drawKey(list);
 }
 function prevDay(iso){
   var p=iso.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]);
@@ -1036,6 +1078,12 @@ function prevDay(iso){
 function minutes(iso){
   var m=/T(\d\d):(\d\d)/.exec(iso||'');
   return m?(+m[1])*60+(+m[2]):12*60;
+}
+function monRow(m){
+  var p=m.split('-'),d=document.createElement('div');
+  d.className='mon';
+  d.innerHTML='<b>'+(+p[0])+'年'+(+p[1])+'月</b><hr>';
+  return d;
 }
 function gapRow(n){
   var g=document.createElement('div');g.className='gap';
@@ -1076,6 +1124,13 @@ function dayRow(day,list){
   });
   wrap.appendChild(tr);
 
+  if(!es.length){
+    var q=document.createElement('div');q.className='yet';
+    q.textContent='まだ';
+    wrap.appendChild(q);
+    return wrap;
+  }
+
   var items=document.createElement('div');items.className='items';
   es.forEach(function(e){
     var it=document.createElement('button');it.className='it';
@@ -1090,25 +1145,129 @@ function dayRow(day,list){
   wrap.appendChild(items);
   return wrap;
 }
-function drawKey(list){
-  var w=document.createElement('div');w.className='key';
-  w.innerHTML='<h3 class="lo">key</h3><div class="row">'+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+/* ───────── 文字にして写す ─────────
+   日記はこの端末の中にしか無いので、外へ出す道をひとつだけ持たせる。
+   ▢ を押すと、全部が読める文になってクリップボードへ入る。 */
+function entryText(e){
+  var L=[];
+  L.push('## '+e.day+' '+hhmm(e.createdAt)+(e.seed?'  ['+e.seed+']':''));
+  if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '));
+  L.push('');
+  if(e.digest){L.push(e.digest);L.push('')}
+  if(e.lines.length){
+    L.push('― 原本');
+    e.lines.forEach(function(l){L.push('- '+l)});
+    L.push('');
+  }
+  if(e.picks.length){
+    L.push('― 洞察');
+    e.picks.forEach(function(x){L.push('- '+x.t+(x.d?'　'+x.d:''))});
+    L.push('');
+  }
+  if(e.asks.length){
+    L.push('― 次の問い');
+    e.asks.forEach(function(x){L.push('- '+x)});
+    L.push('');
+  }
+  if(e.notes.length){
+    L.push('― 補足');
+    e.notes.forEach(function(x){L.push('- '+x.t+(x.d?'　'+x.d:''))});
+    L.push('');
+  }
+  if(e.raw){L.push('― 喋ったまま');L.push(e.raw);L.push('')}
+  return L.join('\n');
+}
+function allText(){
+  var es=state.entries.slice().sort(function(a,b){return a.createdAt<b.createdAt?1:-1});
+  var L=['# journaling　'+today()+' 時点', '', es.length+'件 / '+Object.keys(es.reduce(function(o,e){o[e.day]=1;return o},{})).length+'日', ''];
+  es.forEach(function(e){L.push(entryText(e))});
+  return L.join('\n');
+}
+/* クリップボードは https か localhost でしか使えない。
+   使えないときは、選択して写す昔の道に落とす。 */
+function copy(text,btn){
+  function done(){
+    if(btn){btn.classList.add('done');setTimeout(function(){btn.classList.remove('done')},900)}
+    say('copied');
+  }
+  function fallback(){
+    try{
+      var ta=document.createElement('textarea');
+      ta.value=text;ta.setAttribute('readonly','');
+      ta.style.position='fixed';ta.style.top='-1000px';ta.style.opacity='0';
+      document.body.appendChild(ta);
+      ta.select();ta.setSelectionRange(0,text.length);
+      var ok=document.execCommand('copy');
+      ta.remove();
+      ok?done():say('写せなかった');
+    }catch(e){say('写せなかった')}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(done,fallback);
+  else fallback();
+}
+
+/* ───────── 設定の面 ─────────
+   鍵は日記の並びの中には置かない（毎日見るものではないので、目的が読めなくなる）。 */
+var setSheet=$('set');
+function openSet(){
+  drawSet();
+  setSheet.classList.add('on');setSheet.setAttribute('aria-hidden','false');
+  track.classList.add('lock');
+}
+function closeSet(){
+  setSheet.classList.remove('on');setSheet.setAttribute('aria-hidden','true');
+  track.classList.remove('lock');
+}
+$('setClose').addEventListener('click',closeSet);
+$('openSet').addEventListener('click',openSet);
+$('copyAll').addEventListener('click',function(){
+  if(!state.entries.length){say('まだ1件も無い');return}
+  copy(allText(),this);
+});
+
+function drawSet(){
+  var b=$('setBody');b.className='body set';b.innerHTML='';
+
+  var k=document.createElement('div');k.className='blk';
+  k.innerHTML='<h3 class="lo">key</h3><div class="row">'+
     '<input id="keyIn" type="password" inputmode="text" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">'+
     '<button id="keySave" class="lo">save</button></div>'+
-    '<p>整形と洞察に Claude（'+MODEL+'）を使う。鍵はこの端末のブラウザにだけ残り、api.anthropic.com 以外へは送らない。'+
-    '鍵が無くても、喋った内容は箇条書きにして残る。</p>';
-  list.appendChild(w);
+    '<p>整形と洞察に Claude（'+MODEL+'）を使う。鍵はこの端末のブラウザにだけ残り、'+
+    'api.anthropic.com 以外へは送らない。鍵が無くても、喋った内容は箇条書きにして残る。</p>';
+  b.appendChild(k);
   var input=$('keyIn');
   input.value=apiKey()?'········································':'';
   $('keySave').addEventListener('click',function(){
     var v=input.value.trim();
     if(/^·+$/.test(v))return;
-    if(!v){state.settings.key='';save();say('鍵を消した');draw();return}
-    state.settings.key=v;save();say('鍵を入れた');draw();
+    if(!v){state.settings.key='';save();say('鍵を消した');drawSet();return}
+    state.settings.key=v;save();say('鍵を入れた');drawSet();
   });
+
+  var c=document.createElement('div');c.className='blk';
+  c.innerHTML='<h3 class="lo">copy</h3>';
+  var cb=document.createElement('button');
+  cb.className='wide';cb.textContent='日記を全部うつす（'+state.entries.length+'件）';
+  cb.addEventListener('click',function(){
+    if(!state.entries.length){say('まだ1件も無い');return}
+    copy(allText());
+  });
+  c.appendChild(cb);
+  var cp=document.createElement('p');
+  cp.textContent='まとめ・原本・洞察・喋ったままの全部が、読める文になってクリップボードに入る。';
+  c.appendChild(cp);
+  b.appendChild(c);
+
+  var d=document.createElement('div');d.className='blk';
+  d.innerHTML='<h3 class="lo">data</h3><p>日記はこの端末のこのブラウザの中にだけある。'+
+    'サーバにも他の端末にも無い。ブラウザのデータを消すと日記も消えるので、'+
+    '残したいときは上の ▢ で写して、どこかに貼っておく。</p>';
+  b.appendChild(d);
 }
-function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
-  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 
 /* ───────── ひらく面 ─────────
    まとめを押すと洞察が出る。洞察が出てから keep で日記として並ぶ。 */
@@ -1127,6 +1286,10 @@ function closeSheet(){
   track.classList.remove('lock');
 }
 $('sClose').addEventListener('click',closeSheet);
+$('sCopy').addEventListener('click',function(){
+  var e=find(openId);
+  if(e)copy(entryText(e),this);
+});
 
 function drawSheet(e){
   if(!e||e.id!==openId)return;
@@ -1196,7 +1359,11 @@ function sec(title,html){
   s.innerHTML='<h4 class="lo">'+title+'</h4>'+html;
   return s;
 }
-document.addEventListener('keydown',function(e){if(e.key==='Escape'&&openId)closeSheet()});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  if(setSheet.classList.contains('on'))closeSet();
+  else if(openId)closeSheet();
+});
 
 /* ロゴ。アイコンと同じ形（アメーバを脈が貫き、内側では地の色に反転する） */
 (function(){
