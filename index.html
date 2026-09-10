@@ -242,7 +242,9 @@ body.kb .tip{opacity:0}
 .sec{margin-top:32px}
 .sec:first-child{margin-top:6px}
 .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.shl{display:flex;align-items:center;gap:8px;padding:4px 0;text-align:left}
 .sh h4{margin:0;font-weight:400;font-size:9.5px;color:var(--l40)}
+.shl em{font-style:normal;font-size:10px;color:var(--l26)}
 .sh .ic{margin:0 -6px 0 0}
 
 /* ① 話したこと＝面の頭。ここだけ字を大きく持つ */
@@ -251,38 +253,11 @@ body.kb .tip{opacity:0}
 .gh::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;
   background:var(--l26);vertical-align:middle;margin:-2px 7px 0 0}
 .sec>div>.gh:first-child{margin-top:0}
-.pnote{margin:12px 0 0;font-size:11px;line-height:1.85;color:var(--l40)}
-.sec .wide{width:100%;min-height:46px;border:1px solid var(--l16);border-radius:23px;
-  font-size:12px;letter-spacing:.06em;transition:background .2s}
-.sec .wide:active{background:var(--l05)}
 .bul{margin:0;padding:0;list-style:none}
 .bul li{position:relative;padding-left:16px;margin-bottom:11px;
   font-weight:300;font-size:16.5px;line-height:1.72;letter-spacing:-.005em;word-break:auto-phrase}
 .bul li::before{content:"";position:absolute;left:0;top:.82em;width:7px;height:1px;background:var(--l40)}
 
-/* ④ 起爆剤 */
-.spk{margin:0;padding:0;list-style:none}
-.spk li{font-weight:300;font-size:15.5px;line-height:1.68;margin-bottom:12px;
-  padding:2px 0 2px 14px;border-left:1px solid var(--l26);word-break:auto-phrase}
-
-/* ③ 前に言っていたこと */
-.echo{display:flex;gap:10px;width:100%;text-align:left;padding:9px 0;border-top:1px solid var(--l05)}
-.echo:active{background:var(--l05)}
-.echo u{flex:0 0 3.6em;text-decoration:none;font-size:9.5px;color:var(--l26);padding-top:3px}
-.echo div{flex:1 1 auto;min-width:0}
-.echo s{text-decoration:none;font-size:10.5px;color:var(--l58);margin-right:8px}
-.echo s::before{content:"「"}
-.echo s::after{content:"」"}
-.echo p{margin:3px 0 0;font-size:12.5px;line-height:1.6;color:var(--l40);word-break:auto-phrase;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.pick{margin-bottom:16px}
-.pick b{display:block;font-weight:500;font-size:15.5px;line-height:1.6;margin-bottom:4px;
-  color:var(--lume);word-break:auto-phrase}
-.pick span{font-size:13px;line-height:1.85;color:var(--l58);word-break:auto-phrase}
-.ask2{font-weight:300;font-size:16px;line-height:1.72;margin-bottom:14px;padding:2px 0 2px 14px;
-  border-left:1px solid var(--l26);word-break:auto-phrase}
-.note{font-size:13px;line-height:1.85;color:var(--l58);margin-bottom:14px;word-break:auto-phrase}
-.note b{font-weight:500;color:var(--l86)}
 .origin{margin:0;padding:0;list-style:none}
 .origin li{position:relative;padding-left:14px;margin-bottom:7px;font-size:13px;line-height:1.8;color:var(--l58);word-break:auto-phrase}
 .origin li::before{content:"";position:absolute;left:0;top:.85em;width:5px;height:1px;background:var(--l26)}
@@ -327,7 +302,7 @@ body.kb .tip{opacity:0}
       <div class="count">
         <span><b id="cDays">0</b><i class="lo">days</i></span>
         <span><b id="cRow">0</b><i class="lo">in a row</i></span>
-        <span><b id="cTag">0</b><i class="lo">insights</i></span>
+        <span><b id="cTag">0</b><i class="lo">tags</i></span>
       </div>
       <div class="cloud" id="cloud"></div>
       <div class="axis" id="axis" aria-hidden="true">
@@ -862,17 +837,20 @@ document.addEventListener('visibilitychange',function(){
 });
 
 /* ───────── 喋ったものを組み立てる ─────────
-   鍵（API key）の概念は置かない。外へ何も送らず、この端末の中だけで組み立てる。
-   だから「解釈」はしない。やるのは、本人が言ったことの並べ替えと、
-   過去の自分との突き合わせと、次に喋りたくなる問いの差し出しだけ。
+   ここは記録に徹する。AIは呼ばないし、解釈もしない。
+   やるのは2つだけ。
 
-   もっと深い洞察が欲しいときは、各段の ▢ で写して、そのままAIに貼る。 */
+   1. 日本語として読める行に割る（言いよどみと短い言い直しを落とす）＝ origin
+   2. その行を語で寄せて、かたまりごとに要点だけ残す           ＝ summary
+
+   洞察・問い・過去との突き合わせは置かない（規則では作れないものを作らない）。 */
 
 /* 言いよどみ。喋りの頭に必ず付くものだけを落とす */
 var FILL=/^(えーと|えっと|えー|あのー|あの|うーん|んー|なんか|そうだな|やっぱり|ていうか|というか|まあ|ま|で|それで|あと)[、,。\s]*/;
-/* 気づきの言い方。ここが本人にとっての発見の瞬間 */
-var MARK=/気づ|気付|わかった|分かった|つまり|結局|そうか|実は|逆に|重要|大事|ということは|なるほど|だと思う|べき|やめ|決め|したい|しよう|必要|問題は|大事なのは/;
+/* 言い方の重み。要点を選ぶときに、ここを含む行を上げる */
+var MARK=/気づ|気付|わかった|分かった|つまり|結局|そうか|実は|逆に|重要|大事|ということは|だと思う|べき|やめ|決め|したい|しよう|必要|問題は|大事なのは/;
 
+/* ① ほぼ言ったまま、日本語だけ直した行 */
 function sentences(raw){
   var parts=String(raw).replace(/\r/g,'').split(/[。\n]+|(?<=[！？!?])/);
   var out=[];
@@ -881,67 +859,12 @@ function sentences(raw){
     for(var i=0;i<3;i++)t=t.replace(FILL,'');
     t=t.trim();
     if(!t)return;
-    /* 短い言い直しは前の文にくっつける（1行1事にするため） */
+    /* 短い言い直しは前の行にくっつける（1行1事にするため） */
     if(t.length<7&&out.length){out[out.length-1]=out[out.length-1].replace(/。$/,'')+'、'+t+'。';return}
     if(!/[。！？!?、]$/.test(t))t+='。';
     if(out.indexOf(t)<0)out.push(t);
   });
   return out;
-}
-
-/* 上に出すまとめ。
-   前は「よさそうな6行を抜く」だけだったので、話の切り替わりが見えなかった。
-   いまは行を語で寄せて、かたまりごとに見出し（そのかたまりでいちばん強い語）を付ける。
-   要約はしない（言い換えると本人の言葉ではなくなる）。並べ替えと束ね方だけを変える。 */
-function groupsOf(e){
-  var ls=e.lines&&e.lines.length?e.lines:sentences(e.raw);
-  if(ls.length<4)return [{h:'',ls:ls}];
-  var gs=[];
-  ls.forEach(function(l){
-    var ws=wordsOf(l),best=null,bs=0;
-    gs.forEach(function(g){
-      var sc=0;
-      ws.forEach(function(w){if(g.w[w])sc+=w.length});
-      if(sc>bs){bs=sc;best=g}
-    });
-    if(best&&bs>=2){
-      best.ls.push(l);
-      ws.forEach(function(w){best.w[w]=(best.w[w]||0)+1});
-    }else{
-      var g={ls:[l],w:{}};
-      ws.forEach(function(w){g.w[w]=1});
-      gs.push(g);
-    }
-  });
-  /* 多すぎると見出しばかりになるので、小さいかたまりは後ろから畳む */
-  while(gs.length>4){
-    var mi=1,ms=1e9;
-    for(var i=1;i<gs.length;i++)if(gs[i].ls.length<=ms){ms=gs[i].ls.length;mi=i}
-    var g2=gs.splice(mi,1)[0],t=gs[mi-1];
-    g2.ls.forEach(function(x){t.ls.push(x)});
-    Object.keys(g2.w).forEach(function(w){t.w[w]=(t.w[w]||0)+g2.w[w]});
-  }
-  gs.forEach(function(g){
-    var best='',bs=0;
-    Object.keys(g.w).forEach(function(w){
-      if(g.w[w]<2||w.length<3)return;      /* 2回以上・3字以上の語だけを見出しにする */
-      var sc=g.w[w]*w.length;
-      if(sc>bs){bs=sc;best=w}
-    });
-    g.h=(g.ls.length>1&&gs.length>1)?best:'';
-  });
-  return gs;
-}
-function bulletsOf(e){
-  var out=[];
-  groupsOf(e).forEach(function(g){g.ls.forEach(function(l){out.push(l)})});
-  return out;
-}
-
-/* 気づき。作らない。本人が「気づいた」と言った行をそのまま出す */
-function foundOf(e){
-  var ls=e.lines&&e.lines.length?e.lines:sentences(e.raw);
-  return ls.filter(function(l){return MARK.test(l)}).slice(0,3);
 }
 
 /* 語を拾う。辞書は積まない（漢字・カタカナ・英数の連なりを語とみなす） */
@@ -958,91 +881,59 @@ function tagsLocal(lines){
   return Object.keys(c).sort(function(a,b){return c[b]-c[a]||b.length-a.length}).slice(0,2);
 }
 
-/* 過去の自分とのつながり。ここだけは事実で、しかも溜まるほど効く。
-   同じ語を前にも喋っていたら、その日を出す。押せばその日記が開く。 */
-function daysBetween(d1,d2){
-  var p=d1.split('-'),q=d2.split('-');
-  var a=new Date(+p[0],+p[1]-1,+p[2]),b=new Date(+q[0],+q[1]-1,+q[2]);
-  return Math.round((a-b)/86400000);
-}
-function echoOf(e){
-  var mine={};
-  wordsOf((e.lines&&e.lines.length?e.lines.join(' '):e.raw)).forEach(function(w){mine[w]=1});
-  var out=[];
-  state.entries.forEach(function(o){
-    if(o.id===e.id||o.createdAt>=e.createdAt)return;
-    var hit=[],seen={},sc=0;
-    wordsOf((o.lines&&o.lines.length?o.lines.join(' '):o.raw)).forEach(function(w){
-      if(mine[w]&&!seen[w]){seen[w]=1;hit.push(w);sc+=w.length}
+/* ② 語で寄せて、かたまりにする。
+   話は行き来するので、同じ語が出てくる行を1つに束ねると切り替わりが見える。 */
+function groupsOf(e){
+  var ls=e.lines&&e.lines.length?e.lines:sentences(e.raw);
+  if(ls.length<4)return [{h:'',ls:ls,all:ls}];
+  var gs=[];
+  ls.forEach(function(l){
+    var ws=wordsOf(l),best=null,bs=0;
+    gs.forEach(function(g){
+      var sc=0;
+      ws.forEach(function(w){if(g.w[w])sc+=w.length});
+      if(sc>bs){bs=sc;best=g}
     });
-    if(hit.length)out.push({e:o,s:sc,ws:hit.sort(function(a,b){return b.length-a.length}).slice(0,3)});
+    if(best&&bs>=2){
+      best.all.push(l);
+      ws.forEach(function(w){best.w[w]=(best.w[w]||0)+1});
+    }else{
+      var g={all:[l],w:{}};
+      ws.forEach(function(w){g.w[w]=1});
+      gs.push(g);
+    }
   });
-  out.sort(function(a,b){return b.s-a.s});
-  return out.slice(0,3);
+  /* 多すぎると見出しばかりになるので、小さいかたまりは後ろから畳む */
+  while(gs.length>4){
+    var mi=1,ms=1e9;
+    for(var i=1;i<gs.length;i++)if(gs[i].all.length<=ms){ms=gs[i].all.length;mi=i}
+    var g2=gs.splice(mi,1)[0],t=gs[mi-1];
+    g2.all.forEach(function(x){t.all.push(x)});
+    Object.keys(g2.w).forEach(function(w){t.w[w]=(t.w[w]||0)+g2.w[w]});
+  }
+  /* 見出しは、そのかたまりで2回以上・3字以上出てくる語があるときだけ。
+     1回だけの語を見出しにすると「行抜」のような切れ端が出て、かえって読めない。 */
+  gs.forEach(function(g){
+    var best='',bs=0;
+    Object.keys(g.w).forEach(function(w){
+      if(g.w[w]<2||w.length<3)return;
+      var sc=g.w[w]*w.length;
+      if(sc>bs){bs=sc;best=w}
+    });
+    g.h=(g.all.length>1&&gs.length>1)?best:'';
+    /* かたまりの中は、言い方の重みと長さで要点だけ残す（話した順は変えない） */
+    var keep=Math.max(1,Math.round(6/gs.length));
+    if(g.all.length<=keep){g.ls=g.all.slice();return}
+    var sc2=g.all.map(function(l,i){return {l:l,i:i,s:(MARK.test(l)?100:0)+Math.min(l.length,60)}});
+    sc2.sort(function(x,y){return y.s-x.s});
+    g.ls=sc2.slice(0,keep).sort(function(x,y){return x.i-y.i}).map(function(x){return x.l});
+  });
+  return gs;
 }
-
-/* 起爆剤。
-   前は16の型からidで適当に選んでいたので、内容とすれ違うことが多かった。
-   いまは①過去に同じ語を喋っていたか ②どんな言い方をしたか（決意／断定／詰まり／気づき）
-   の順に見て、当たった型だけを使う。①は事実なので、ここがいちばん刺さる。 */
-var ECHO_Q=[
-  '「＿」は Ｎ にも言っていた。あれから何が動いた？',
-  '同じ「＿」を繰り返している。まだ答えが出ていないのはどこ？',
-  'Ｎの「＿」と、今日の「＿」は、同じことを言っている？'
-];
-var KIND=[
-  {re:/したい|しよう|やめ(たい|る|よう)|決め(た|よう)|始め(る|たい)|続け(る|たい)|やってみ/,
-   qs:['「＿」をやめると、いちばん困るのは誰？',
-       '「＿」を、明日3分だけやるとしたら何をする？',
-       '「＿」をやると決めたのは、いつからだった？']},
-  {re:/いちばん|一番|最も|べき|重要|大事|正しい|だと思う|に違いない|絶対|必ず/,
-   qs:['「＿」が正しくないとしたら、どこが最初に崩れる？',
-       '「＿」を疑っている人は、何を見ている？',
-       '「＿」は、どこまでが事実で、どこからが自分の解釈？']},
-  {re:/辛い|つらい|嫌|面倒|めんどう|微妙|うまくいかな|動かな|読まな|できな|詰ま|止ま|わからな|分からな/,
-   qs:['「＿」のままで困らない人は、どんな人？',
-       '「＿」が辛いのは、誰のためにやっているから？',
-       '「＿」を、他の人はどうやって避けている？']},
-  {re:/気づ|気付|わかった|分かった|つまり|結局|そうか|実は/,
-   qs:['その気づきは、前から知っていたのに動かなかった。何が止めていた？',
-       '「＿」に気づいて、やめられるものは何？',
-       'いつ気づいていれば、いちばん得だった？']}
-];
-/* 型に当たらなかったときだけ使う、内容に寄らない問い */
-var SPARK=[
-  '「＿」を、逆から言うとどうなる？',
-  '「＿」が明日なくなったら、最初に困るのは誰？',
-  '「＿」を、知らない人に3行で説明するとしたら？',
-  'なぜ「＿」は、いままで誰も直していない？',
-  '「＿」の値段は、何で決まっている？',
-  '「＿」を10倍にすると、どこが最初に壊れる？',
-  '5年後に「＿」を振り返って、笑うのはどこ？',
-  '「＿」と関係なさそうに見えるものを、1つ挙げると？',
-  '「＿」が当たり前になった世界では、何が仕事になる？'
-];
-function hash(t){var h=0;for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return h}
-function sparkOf(e){
-  var ws=(e.tags&&e.tags.length?e.tags:tagsLocal(e.lines&&e.lines.length?e.lines:[e.raw]));
-  if(!ws.length)return [];
-  var text=(e.lines&&e.lines.length?e.lines.join(' '):e.raw)||'';
-  var h=hash(e.id),out=[];
-
-  var ec=echoOf(e);
-  if(ec.length){
-    var n=daysBetween(e.day,ec[0].e.day);
-    var when=n===0?'同じ日':(n===1?'前の日':n+'日前');
-    out.push(ECHO_Q[h%ECHO_Q.length]
-      .replace(/＿/g,ec[0].ws[0]||ws[0]).replace('Ｎ',when));
-  }
-  for(var i=0;i<KIND.length&&out.length<2;i++){
-    if(KIND[i].re.test(text))
-      out.push(KIND[i].qs[h%KIND[i].qs.length].replace(/＿/g,ws[0]));
-  }
-  for(var j=0;out.length<3&&j<40;j++){
-    var q=SPARK[(h+j*5)%SPARK.length].replace(/＿/g,ws[j%ws.length]);
-    if(out.indexOf(q)<0)out.push(q);
-  }
-  return out.slice(0,3);
+function bulletsOf(e){
+  var out=[];
+  groupsOf(e).forEach(function(g){g.ls.forEach(function(l){out.push(l)})});
+  return out;
 }
 
 /* 置いた直後に組み立てる。待ち時間は無い（外へ出ないので） */
@@ -1204,23 +1095,14 @@ function entryText(e){
   var L=['## '+e.day+' '+hhmm(e.createdAt)+(e.seed?'  ['+e.seed+']':'')];
   if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '));
   L.push('');
-  L.push('― 話したこと');
-  bulletsOf(e).forEach(function(l){L.push('- '+l)});
+  L.push('― 要点');
+  groupsOf(e).forEach(function(g){
+    if(g.h)L.push('【'+g.h+'】');
+    g.ls.forEach(function(l){L.push('- '+l)});
+  });
   L.push('');
-  var fo=foundOf(e);
-  if(fo.length){L.push('― 気づき');fo.forEach(function(l){L.push('- '+l)});L.push('')}
-  var ec=echoOf(e);
-  if(ec.length){
-    L.push('― 前に言っていたこと');
-    ec.forEach(function(x){
-      var n=daysBetween(e.day,x.e.day);
-      L.push('- '+(n===0?'同じ日':n+'日前')+'（'+x.ws.join('・')+'）'+(x.e.digest||x.e.raw));
-    });
-    L.push('');
-  }
-  var sp=sparkOf(e);
-  if(sp.length){L.push('― つぎ');sp.forEach(function(q){L.push('- '+q)});L.push('')}
-  if(e.lines.length){L.push('― 原本');e.lines.forEach(function(l){L.push('- '+l)});L.push('')}
+  if(e.lines.length){L.push('― 話したこと');e.lines.forEach(function(l){L.push('- '+l)});L.push('')}
+  /* 旧版（Claudeを呼んでいたころ）の洞察が残っているものは、写しにだけ残す */
   if(e.picks&&e.picks.length){
     L.push('― 洞察（旧版）');
     e.picks.forEach(function(x){L.push('- '+x.t+(x.d?'　'+x.d:''))});
@@ -1291,23 +1173,9 @@ function drawSet(){
   });
   c.appendChild(cb);
   var cp=document.createElement('p');
-  cp.textContent='話したこと・気づき・前に言っていたこと・つぎ・原本・喋ったままの全部が、読める文になってクリップボードに入る。1件ずつ・1段ずつは、それぞれの右上の ▢ から。';
+  cp.textContent='要点・話したこと・喋ったままの全部が、読める文になってクリップボードに入る。1件ずつ・1段ずつは、それぞれの右上の ▢ から。';
   c.appendChild(cp);
   b.appendChild(c);
-
-  var k=document.createElement('div');k.className='blk';
-  k.innerHTML='<h3 class="lo">ask ai</h3>';
-  var kb=document.createElement('button');
-  kb.className='wide';kb.textContent='全部をAIに読ませる文をうつす';
-  kb.addEventListener('click',function(){
-    if(!state.entries.length){say('まだ1件も無い');return}
-    copy(promptAll());
-  });
-  k.appendChild(kb);
-  var kp=document.createElement('p');
-  kp.textContent='日をまたいで繰り返している主題、変わっていない前提、避けている論点を見つけてもらう指示が入っている。1件ずつは、その日記の面のいちばん下から。';
-  k.appendChild(kp);
-  b.appendChild(k);
 
   var d=document.createElement('div');d.className='blk';
   d.innerHTML='<h3 class="lo">data</h3><p>日記はこの端末のこのブラウザの中にだけある。'+
@@ -1317,7 +1185,8 @@ function drawSet(){
 }
 
 /* ───────── ひらく面 ─────────
-   まとめを押すと洞察が出る。洞察が出てから keep で日記として並ぶ。 */
+   記録に徹する。上に構造化した要点、その下に話したことの全行、いちばん下に畳んだ raw。
+   段ごとに ▢ で写せる。keep を押すと日記として並ぶ。 */
 var sheet=$('sheet'),openId='';
 function openSheet(e){
   openId=e.id;
@@ -1344,8 +1213,8 @@ function drawSheet(e){
   $('sWhen').textContent=dayLabel(e.day)+' '+hhmm(e.createdAt)+(e.seed?' · '+e.seed:'');
   var b=$('sBody');b.innerHTML='';
 
-  /* ① 話したことを、語で寄せたかたまりごとに置く。ここが面の頭 */
-  var gs=groupsOf(e),bul=bulletsOf(e);
+  /* ① 構造化した要点。語で寄せたかたまりごとに置く */
+  var gs=groupsOf(e);
   var sum=gs.map(function(g){
     return (g.h?'<h5 class="gh">'+esc(g.h)+'</h5>':'')+
       '<ul class="bul">'+g.ls.map(function(l){return '<li>'+esc(l)+'</li>'}).join('')+'</ul>';
@@ -1358,55 +1227,17 @@ function drawSheet(e){
     b.appendChild(t);
   }
 
-  /* ② 気づき。作らない。本人が「気づいた」と言った行をそのまま返す */
-  var fo=foundOf(e);
-  if(fo.length)b.appendChild(sec('found',
-    fo.map(function(l){return '<div class="ask2">'+esc(l)+'</div>'}).join(''),
-    function(){return blockText(e,'found')}));
-
-  /* ③ 前に自分が言っていたこと。事実だけ。押せばその日記が開く */
-  var ec=echoOf(e);
-  if(ec.length){
-    var box=document.createElement('div');
-    ec.forEach(function(x){
-      var n=daysBetween(e.day,x.e.day);
-      var when=n===0?'同じ日':(n===1?'前の日':n+'日前');
-      var row=document.createElement('button');row.className='echo';
-      row.innerHTML='<u>'+when+'</u><div><span>'+
-        x.ws.map(function(w){return '<s>'+esc(w)+'</s>'}).join('')+'</span><p>'+
-        esc(x.e.digest||x.e.raw)+'</p></div>';
-      row.addEventListener('click',function(){openSheet(x.e)});
-      box.appendChild(row);
-    });
-    b.appendChild(sec('echo',box,function(){return blockText(e,'echo')}));
-  }
-
-  /* ④ 起爆剤。答えではなく、次に喋り出したくなる形 */
-  var sp=sparkOf(e);
-  if(sp.length)b.appendChild(sec('spark',
-    '<ul class="spk">'+sp.map(function(q){return '<li>'+esc(q)+'</li>'}).join('')+'</ul>',
-    function(){return blockText(e,'spark')}));
-
-  /* ⑤ 原本（全部の行） */
-  if(e.lines.length>bul.length)b.appendChild(sec('origin',
+  /* ② ほぼ言ったまま、日本語だけ直した行。全部。
+     短い日記だと①と同じ行になるので、そのときは出さない（同じものを二度読ませない） */
+  var cut=0;
+  gs.forEach(function(g){cut+=g.ls.length});
+  if(cut<e.lines.length)b.appendChild(sec('origin',
     '<ul class="origin">'+e.lines.map(function(l){return '<li>'+esc(l)+'</li>'}).join('')+'</ul>',
     function(){return blockText(e,'origin')}));
 
-  /* ⑥ 喋ったまま */
-  b.appendChild(sec('raw','<p class="raw">'+esc(e.raw)+'</p>',function(){return e.raw}));
-
-  /* ⑦ AIに読ませる文。ここが唯一「解釈」を取りに行く道（鍵は要らない） */
-  var ai=document.createElement('button');
-  ai.className='wide';ai.textContent='AIに読ませる文をうつす';
-  ai.addEventListener('click',function(){copy(promptOne(e))});
-  var aip=document.createElement('p');aip.className='pnote';
-  aip.textContent='写して、Claude や ChatGPT にそのまま貼る。「気づいていないことを、本人の言葉の矛盾から3つ」まで指示が入っている。';
-  var aiw=document.createElement('div');aiw.appendChild(ai);aiw.appendChild(aip);
-  b.appendChild(sec('ask ai',aiw));
-
-  /* 昔の版で Claude が付けた洞察が残っているものは、そのまま下に置く */
-  if(e.picks&&e.picks.length)b.appendChild(sec('kept notes',e.picks.map(function(x){
-    return '<div class="pick"><b>'+esc(x.t)+'</b><span>'+esc(x.d)+'</span></div>'}).join('')));
+  /* ③ 喋った文字そのまま。畳んで置く（読むためではなく、消さないための段） */
+  b.appendChild(sec('raw','<p class="raw">'+esc(e.raw)+'</p>',
+    function(){return e.raw},true));
 
   var foot=$('sFoot');foot.innerHTML='';
   if(e.status!=='kept'){
@@ -1428,70 +1259,28 @@ function drawSheet(e){
   foot.appendChild(f2);
 }
 
-/* AIに渡す文。
-   アプリの中で解釈を作らない代わりに、「何をどう読んでほしいか」だけを持つ。
-   ここが実際の洞察の中身を決めるので、直すのはこの2つの文だけでよい。 */
-var ASK_ONE=[
-'これは、ある人がその日にひとりで喋ったものです。',
-'話し手が自分では気づいていないことを見つけてください。',
-'',
-'- 要約・励まし・一般論はいりません',
-'- 本人の言葉の中の「矛盾」「すり替わっている前提」「避けている論点」を探してください',
-'- 「本当は A ではなく B ではないか」の形で3つ',
-'- そのうえで、次に喋り出したくなる問いを1つだけ',
-'- 事実を足すときは、確かなものだけ。曖昧なら足さない',
-''
-].join('\n');
-var ASK_ALL=[
-'これは、同じ人の音声日記を新しい順に並べたものです。',
-'日をまたいで見えてくるものを見つけてください。',
-'',
-'- 繰り返している主題と、その繰り返し方（前進しているのか、同じ所を回っているのか）',
-'- 何ヶ月も変わっていない前提',
-'- いつも避けている論点',
-'- 本人が使っている言葉の中で、意味がずれていったもの',
-'',
-'そのうえで、次の1週間で試すと差が出そうなことを1つだけ挙げてください。',
-'励ましと要約はいりません。',
-''
-].join('\n');
-function promptOne(e){
-  return ASK_ONE+'\n― 話したこと\n'+
-    bulletsOf(e).map(function(l){return '- '+l}).join('\n')+
-    '\n\n― 喋ったまま\n'+e.raw+'\n';
-}
-function promptAll(){
-  return ASK_ALL+'\n'+allText();
-}
-
 /* 段ごとの文字。▢ で写すのはこれ */
 function blockText(e,kind){
-  var head='## '+e.day+' '+hhmm(e.createdAt)+'　'+kind;
-  var L=[head,''];
+  var L=['## '+e.day+' '+hhmm(e.createdAt)+'　'+kind,''];
   if(kind==='summary'){
     if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '),'');
     groupsOf(e).forEach(function(g){
       if(g.h)L.push('【'+g.h+'】');
       g.ls.forEach(function(l){L.push('- '+l)});
     });
-  }else if(kind==='found'){
-    foundOf(e).forEach(function(l){L.push('- '+l)});
-  }else if(kind==='echo'){
-    echoOf(e).forEach(function(x){
-      var n=daysBetween(e.day,x.e.day);
-      L.push('- '+(n===0?'同じ日':n+'日前')+'（'+x.ws.join('・')+'）'+(x.e.digest||x.e.raw));
-    });
-  }else if(kind==='spark'){
-    sparkOf(e).forEach(function(q){L.push('- '+q)});
   }else if(kind==='origin'){
     e.lines.forEach(function(l){L.push('- '+l)});
   }
   return L.join('\n')+'\n';
 }
-function sec(title,body,text){
+
+function sec(title,body,text,fold){
   var d=document.createElement('div');d.className='sec';
   var h=document.createElement('div');h.className='sh';
-  h.innerHTML='<h4 class="lo">'+title+'</h4>';
+  var t=document.createElement(fold?'button':'div');
+  t.className='shl';
+  t.innerHTML='<h4 class="lo">'+title+'</h4>'+(fold?'<em>+</em>':'');
+  h.appendChild(t);
   if(text){
     var c=document.createElement('button');
     c.className='ic sq';c.setAttribute('aria-label',title+' をうつす');
@@ -1500,9 +1289,16 @@ function sec(title,body,text){
     h.appendChild(c);
   }
   d.appendChild(h);
-  if(typeof body==='string'){
-    var w=document.createElement('div');w.innerHTML=body;d.appendChild(w);
-  }else d.appendChild(body);
+  var w=document.createElement('div');
+  if(typeof body==='string')w.innerHTML=body;else w.appendChild(body);
+  if(fold){
+    w.hidden=true;
+    t.addEventListener('click',function(){
+      w.hidden=!w.hidden;
+      t.querySelector('em').textContent=w.hidden?'+':'−';
+    });
+  }
+  d.appendChild(w);
   return d;
 }
 document.addEventListener('keydown',function(e){
