@@ -245,6 +245,12 @@ Service Worker も使えない。
 `wonleekorea-lab/vein` の `main` ブランチ直下を GitHub Pages がそのまま配信する。
 `git push origin main` すれば1〜2分で反映される。`.nojekyll` があるのでビルドは走らない。
 
+端末に届くのは**次に開いたとき**。Service Worker はページをネットワーク優先で取るが、
+素の `fetch` だと**ブラウザのHTTPキャッシュ（GitHub Pages は10分）から古いHTMLが返る**ことがあり、
+直したはずのものが最大10分届かなかった（実際に、直後の確認で古い版を掴んでいた）。
+いまは `cache:'reload'` を付けてHTTPキャッシュを迂回している。
+絵やアイコンを差し替えたときは、これとは別に `sw.js` の `CACHE` 名を上げること。
+
 ---
 
 ## 音声

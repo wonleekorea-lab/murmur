@@ -3,7 +3,7 @@
  * ページ本体（HTML）はネットワーク優先。キャッシュ優先にすると直したものが端末に届かず、
  * 古い <link rel="apple-touch-icon"> を掴み続ける事故が起きる。
  * 画像などファイル名が変わらないものだけキャッシュ優先にする。 */
-var CACHE = 'journaling-v11';
+var CACHE = 'journaling-v12';
 var SHELL = ['./', './index.html', './manifest.json',
              './icon-180-v2.png', './icon-192-v2.png', './icon-512-v2.png'];
 
@@ -37,8 +37,16 @@ self.addEventListener('fetch', function (e) {
                   (req.headers.get('accept') || '').indexOf('text/html') !== -1;
 
   if (wantsHtml) {
+    /* ページは必ず取り直す。
+       ただの fetch(req) だと、ブラウザのHTTPキャッシュ（GitHub Pages は10分）から
+       返ってくることがあり、直したはずのものが最大10分届かなかった。
+       cache:'reload' を付けてHTTPキャッシュを迂回する（使えない環境では素の fetch に落ちる）。 */
+    var fresh;
+    try { fresh = fetch(req, { cache: 'reload' }); }
+    catch (err) { fresh = fetch(req); }
+
     e.respondWith(
-      fetch(req).then(function (res) {
+      fresh.then(function (res) {
         if (res && res.ok) {
           var copy = res.clone();
           caches.open(CACHE).then(function (c) { c.put(req, copy); });
