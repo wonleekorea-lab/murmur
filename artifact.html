@@ -223,6 +223,11 @@ body.kb .tip{opacity:0}
 .set input::placeholder{color:var(--l16)}
 .set p{margin:12px 0 0;font-size:11px;line-height:1.85;color:var(--l40)}
 .set .blk{margin-bottom:34px}
+.set .paste{width:100%;min-height:78px;margin-bottom:12px;border:1px solid var(--l16);
+  border-radius:12px;padding:10px 12px;font-size:11.5px;line-height:1.6;
+  font-family:var(--f);background:var(--void2);resize:vertical}
+.set .paste::placeholder{color:var(--l16)}
+.set p b{font-weight:500;color:var(--l86)}
 .set .wide{width:100%;min-height:46px;border:1px solid var(--l16);border-radius:23px;
   font-size:12px;letter-spacing:.06em;transition:background .2s}
 .set .wide:active{background:var(--l05)}
@@ -366,7 +371,6 @@ body.kb .tip{opacity:0}
 (function(){
 "use strict";
 var $=function(id){return document.getElementById(id)};
-var KEY='murmur_state_v1';
 var reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ───────── 日付（ローカル固定・UTCずれなし） ───────── */
@@ -389,46 +393,183 @@ function dayLabel(day){
 function hhmm(iso){var m=/T(\d\d:\d\d)/.exec(iso||'');return m?m[1]:''}
 function uid(){return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 
-/* ───────── 保存 ───────── */
+/* ───────── 保存 ─────────
+   日記は溜まり続けるものなので、1か所に置かない。
+
+   1. localStorage（すぐ読める本体）
+   2. IndexedDB（同じものの控え。iOS では localStorage より消されにくい）
+   3. 日ごとの控え（murmur_snap_YYYY-MM-DD、直近10日ぶん）
+
+   立ち上げのたびに全部を突き合わせて、**足し合わせたものを本体にする**。
+   どれか1つが消えても、残りから戻る。消えるときも、黙って空では始めない。
+
+   それでも消える場合がある（ホーム画面のアイコンを削除して追加し直す、
+   Safari の「Webサイトデータを消去」、端末の入れ替え）。
+   そのための持ち出し口が settings の export / import。 */
+var KEY='murmur_state_v1';
+var SNAP='murmur_snap_';
+var IDB_NAME='vein',IDB_STORE='state';
+
 function blank(){return {version:1,entries:[],settings:{}}}
 var mem={},volatile=false,warned=false;
 var store={
   get:function(k){try{return localStorage.getItem(k)}catch(e){volatile=true;return k in mem?mem[k]:null}},
-  set:function(k,v){try{localStorage.setItem(k,v)}catch(e){volatile=true;mem[k]=v}}
-};
-var state=(function load(){
-  var raw=store.get(KEY);
-  if(!raw)return blank();
-  try{
-    var s=JSON.parse(raw);
-    if(!s||!Array.isArray(s.entries))throw new Error('shape');
-    s.version=1;
-    s.settings=s.settings&&typeof s.settings==='object'?s.settings:{};
-    delete s.settings.key;          /* 鍵の概念をやめたので、残っていても捨てる */
-    s.settings.seen=Array.isArray(s.settings.seen)?s.settings.seen:[];  /* 出した問い */
-    s.entries.forEach(function(e){
-      e.raw=String(e.raw||'');
-      e.lines=Array.isArray(e.lines)?e.lines:[];
-      e.digest=String(e.digest||'');
-      e.tags=Array.isArray(e.tags)?e.tags:[];
-      e.picks=Array.isArray(e.picks)?e.picks:[];
-      e.asks=Array.isArray(e.asks)?e.asks:[];
-      e.notes=Array.isArray(e.notes)?e.notes:[];
-      e.ask=String(e.ask||'');              // 深い問いから始めた日記だけ持つ
-      e.status=e.status||'draft';           // draft → read → kept
-      e.day=e.day||(e.createdAt||'').slice(0,10)||today();
-    });
-    return s;
-  }catch(err){
-    store.set(KEY+'_backup_'+Date.now(),raw);
-    setTimeout(function(){say('保存データを読めなかった。退避して新しく始める。')},400);
-    return blank();
+  set:function(k,v){try{localStorage.setItem(k,v)}catch(e){volatile=true;mem[k]=v}},
+  del:function(k){try{localStorage.removeItem(k)}catch(e){delete mem[k]}},
+  keys:function(){
+    var out=[];
+    try{for(var i=0;i<localStorage.length;i++)out.push(localStorage.key(i))}catch(e){out=Object.keys(mem)}
+    return out;
   }
+};
+
+/* 形を整える。壊れた1件で全部を落とさない */
+function fix(s){
+  if(!s||typeof s!=='object'||!Array.isArray(s.entries))return null;
+  s.version=1;
+  s.settings=s.settings&&typeof s.settings==='object'?s.settings:{};
+  delete s.settings.key;          /* 鍵の概念をやめたので、残っていても捨てる */
+  s.settings.seen=Array.isArray(s.settings.seen)?s.settings.seen:[];
+  s.settings.prev=Array.isArray(s.settings.prev)?s.settings.prev:[];
+  s.entries=s.entries.filter(function(e){return e&&typeof e==='object'&&(e.raw||e.digest)});
+  s.entries.forEach(function(e){
+    e.id=String(e.id||('m'+Math.random().toString(36).slice(2,10)));
+    e.raw=String(e.raw||'');
+    e.lines=Array.isArray(e.lines)?e.lines:[];
+    e.digest=String(e.digest||'');
+    e.tags=Array.isArray(e.tags)?e.tags:[];
+    e.picks=Array.isArray(e.picks)?e.picks:[];
+    e.asks=Array.isArray(e.asks)?e.asks:[];
+    e.notes=Array.isArray(e.notes)?e.notes:[];
+    e.ask=String(e.ask||'');
+    e.seed=String(e.seed||'');
+    e.createdAt=String(e.createdAt||nowIso());
+    e.status=e.status||'draft';           /* draft → read → kept */
+    e.day=e.day||(e.createdAt||'').slice(0,10)||today();
+  });
+  return s;
+}
+function parse(raw){
+  if(!raw)return null;
+  try{return fix(JSON.parse(raw))}catch(e){return null}
+}
+/* 足し合わせる。同じ id は、先へ進んでいるほう（kept > read > draft）を残す */
+var RANK={draft:0,read:1,kept:2};
+function merge(a,b){
+  if(!a)return b;if(!b)return a;
+  var by={},order=[];
+  function put(e){
+    var o=by[e.id];
+    if(!o){by[e.id]=e;order.push(e.id);return}
+    var ra=RANK[o.status]||0,rb=RANK[e.status]||0;
+    if(rb>ra||(rb===ra&&(e.lines.length>o.lines.length||e.raw.length>o.raw.length)))by[e.id]=e;
+  }
+  a.entries.forEach(put);b.entries.forEach(put);
+  var out=blank();
+  out.entries=order.map(function(id){return by[id]})
+    .sort(function(x,y){return x.createdAt<y.createdAt?-1:1});
+  var sa=a.settings||{},sb=b.settings||{};
+  var seen={};
+  (sa.seen||[]).concat(sb.seen||[]).forEach(function(q){seen[q]=1});
+  out.settings.seen=Object.keys(seen);
+  out.settings.prev=(sa.prev&&sa.prev.length?sa.prev:sb.prev)||[];
+  out.settings.persisted=sa.persisted||sb.persisted||false;
+  return out;
+}
+
+/* ── IndexedDB（控え） ── */
+function idb(fn){
+  return new Promise(function(res,rej){
+    var r;
+    try{r=indexedDB.open(IDB_NAME,1)}catch(e){return rej(e)}
+    r.onupgradeneeded=function(){try{r.result.createObjectStore(IDB_STORE)}catch(e){}};
+    r.onerror=function(){rej(r.error)};
+    r.onsuccess=function(){
+      try{fn(r.result,res,rej)}catch(e){rej(e)}
+    };
+  });
+}
+function idbGet(){
+  return idb(function(db,res,rej){
+    var q=db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get('state');
+    q.onsuccess=function(){res(q.result||null)};
+    q.onerror=function(){rej(q.error)};
+  });
+}
+function idbPut(v){
+  return idb(function(db,res,rej){
+    var q=db.transaction(IDB_STORE,'readwrite').objectStore(IDB_STORE).put(v,'state');
+    q.onsuccess=function(){res(true)};
+    q.onerror=function(){rej(q.error)};
+  });
+}
+
+/* ── 立ち上げ：localStorage と、日ごとの控えを足し合わせる ── */
+var state=(function load(){
+  var main=parse(store.get(KEY));
+  var raw=store.get(KEY);
+  if(raw&&!main){                                   /* 読めなかったぶんは捨てずに退避 */
+    store.set(KEY+'_backup_'+Date.now(),raw);
+    setTimeout(function(){say('本体を読めなかった。控えから戻す。')},500);
+  }
+  var out=main;
+  store.keys().forEach(function(k){
+    if(k.indexOf(SNAP)!==0&&k.indexOf(KEY+'_backup_')!==0)return;
+    var s2=parse(store.get(k));
+    if(s2)out=merge(out,s2);
+  });
+  return out||blank();
 })();
+
+/* ── 保存：本体・控え・日ごとの控え ── */
+var snapDay=store.get('murmur_snap_day')||'';
 function save(){
-  store.set(KEY,JSON.stringify(state));
+  var json=JSON.stringify(state);
+  store.set(KEY,json);
+
+  /* 日が変わったら、その日の頭の姿を1つ残す（直近10日ぶん） */
+  var t=today();
+  if(snapDay!==t){
+    snapDay=t;store.set('murmur_snap_day',t);
+    store.set(SNAP+t,json);
+    var snaps=store.keys().filter(function(k){return k.indexOf(SNAP)===0}).sort();
+    while(snaps.length>10)store.del(snaps.shift());
+  }
+
+  try{idbPut(json)['catch'](function(){})}catch(e){}
+
   if(volatile&&!warned){warned=true;setTimeout(function(){say('この画面ではデータが残らない。ホーム画面に追加して使って。')},600)}
 }
+
+/* ── 立ち上げのあと：IndexedDB の控えと突き合わせる ── */
+function syncIdb(){
+  idbGet().then(function(raw){
+    var s2=parse(raw);
+    if(!s2)return idbPut(JSON.stringify(state));
+    var before=state.entries.length;
+    var m=merge(state,s2);
+    if(m.entries.length>before){
+      state=m;save();draw();
+      say('控えから '+(m.entries.length-before)+'件を戻した');
+    }else if(s2.entries.length<state.entries.length){
+      idbPut(JSON.stringify(state));
+    }
+  })['catch'](function(){});
+}
+
+/* ── 端末に「消さないで」と頼む（iOS/Chrome とも、断られても動きは変わらない） ── */
+function askPersist(){
+  try{
+    if(!navigator.storage||!navigator.storage.persist)return;
+    navigator.storage.persisted().then(function(ok){
+      if(ok){state.settings.persisted=true;return}
+      navigator.storage.persist().then(function(got){
+        state.settings.persisted=!!got;
+      })['catch'](function(){});
+    })['catch'](function(){});
+  }catch(e){}
+}
+
 function find(id){for(var i=0;i<state.entries.length;i++)if(state.entries[i].id===id)return state.entries[i];return null}
 
 /* ───────── 通知 ───────── */
@@ -1537,10 +1678,56 @@ function drawSet(){
   b.appendChild(c);
 
   var d=document.createElement('div');d.className='blk';
-  d.innerHTML='<h3 class="lo">data</h3><p>日記はこの端末のこのブラウザの中にだけある。'+
-    '外へは何も送らない（AIも呼ばない・鍵もいらない）。'+
-    'ブラウザのデータを消すと日記も消えるので、残したいときは ▢ で写して、どこかに貼っておく。</p>';
+  d.innerHTML='<h3 class="lo">data</h3>';
+  var info=document.createElement('p');
+  var snaps=store.keys().filter(function(k){return k.indexOf(SNAP)===0}).length;
+  info.innerHTML='いま <b>'+state.entries.length+'件</b>。'+
+    '本体（localStorage）と控え（IndexedDB）と日ごとの控え（'+snaps+'日ぶん）に、同じものを置いている。'+
+    '立ち上げのたびに全部を足し合わせるので、どれか1つが消えても戻る。'+
+    (state.settings.persisted?'この端末は「消さない」扱いになっている。':'')+
+    '<br><br>ただし<b>ホーム画面のアイコンを削除して追加し直すと、その入れ物ごと消える</b>。'+
+    'Safari で開いたときと、ホーム画面から開いたときも、入れ物が別になることがある。'+
+    '移すときは下の export / import を使う。';
+  d.appendChild(info);
   b.appendChild(d);
+
+  var x=document.createElement('div');x.className='blk';
+  x.innerHTML='<h3 class="lo">export</h3>';
+  var xb=document.createElement('button');
+  xb.className='wide';xb.textContent='まるごと写す（あとで戻せる形）';
+  xb.addEventListener('click',function(){
+    copy(JSON.stringify(state));
+    say('写した。メモ帳などに貼って残す');
+  });
+  x.appendChild(xb);
+  var xp=document.createElement('p');
+  xp.textContent='日記・タグ・出した問いまで、全部が1つの文字列になる。端末を変えるとき、ホーム画面に入れ直すときは、これを先に取っておく。';
+  x.appendChild(xp);
+  b.appendChild(x);
+
+  var m=document.createElement('div');m.className='blk';
+  m.innerHTML='<h3 class="lo">import</h3>';
+  var ta=document.createElement('textarea');
+  ta.className='paste';ta.setAttribute('placeholder','ここに貼る');
+  ta.setAttribute('spellcheck','false');
+  m.appendChild(ta);
+  var mb=document.createElement('button');
+  mb.className='wide';mb.textContent='足し合わせる';
+  mb.addEventListener('click',function(){
+    var v=(ta.value||'').trim();
+    if(!v){say('貼ってから押して');return}
+    var s2=parse(v);
+    if(!s2){say('読めなかった。export で写したものを貼って');return}
+    var before=state.entries.length;
+    state=merge(state,s2);save();draw();drawSet();
+    var add=state.entries.length-before;
+    say(add?add+'件を足した':'新しいものは無かった');
+  });
+  m.appendChild(mb);
+  var mp=document.createElement('p');
+  mp.textContent='上書きではなく足し合わせ。同じ日記は、先へ進んでいるほう（保存済み）が残る。何度貼っても増えない。';
+  m.appendChild(mp);
+  b.appendChild(m);
 }
 
 /* ───────── ひらく面 ─────────
@@ -1687,6 +1874,8 @@ document.addEventListener('keydown',function(e){
 
 /* ───────── 立ち上げ ───────── */
 place();
+syncIdb();          /* IndexedDB の控えと足し合わせる */
+askPersist();       /* 端末に「消さないで」と頼む */
 draw();
 $('tip').textContent=state.entries.length?'':'press';
 goPane(0,false);
