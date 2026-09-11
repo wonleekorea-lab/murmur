@@ -79,16 +79,19 @@ body.kb .dots{opacity:0}
 /* ── 語の野 ──
    語は丸のまわりを回りつづけ、ときどき消えて別の語に入れ替わる。
    下（問いのすぐ上）を通る語が focus になり、問いがひとりでに変わる。
-   語は触らない。触るのは真ん中の丸だけなので pointer-events は載せない。 */
+   **語は触れる。押した語の問いだけが下に出る。**
+   勝手に入れ替わる問いは、読む先が定まらないのでやめた。 */
 .field{position:relative;flex:1 1 auto;min-height:0;opacity:1;transition:opacity .3s}
 #speak[data-state="talk"] .field{opacity:0;pointer-events:none;position:absolute;inset:0}
-.word{position:absolute;left:50%;top:48%;pointer-events:none;
+.word{position:absolute;left:50%;top:48%;padding:12px 12px;margin:-12px 0 0 0;
   font-size:13px;font-weight:400;color:var(--l26);text-transform:lowercase;letter-spacing:.2em;
-  white-space:nowrap;will-change:transform;
-  transition:color .55s,opacity .7s var(--ease)}
+  white-space:nowrap;will-change:transform;touch-action:manipulation;
+  transition:color .4s,opacity .7s var(--ease)}
+.word:active{color:var(--l58)}
 .word i{display:block;font-style:normal;transition:transform .55s var(--ease)}
 .word.on{color:var(--acc86)}
 .word.on i{transform:scale(1.42)}
+#speak.deep-on .word{pointer-events:none}
 .word.out{opacity:0}
 .word.out i{transform:scale(.72)}
 
@@ -676,13 +679,10 @@ var SLOTS=[
   {rx:.58,ry:.88,sp: .000106},
   {rx:.86,ry:.72,sp: .000092}
 ];
-var FOCUS_TURN=4600;        /* 何ミリ秒ごとに focus を次の語へ渡すか */
-var NO_REPEAT=9;            /* 直近この数の語には focus を戻さない。画面に出ている語数より少なくしておく */
 var SWAP_MS=6800;           /* 何ミリ秒ごとに1語を入れ替えるか */
 
 var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='',pendingAsk='';
-var live=[],RX=0,RY=0,focusI=-1,askShown='',raf=null,lastT=0,beat=null,swapping=false,focusAt=0;
-var recent=[];              /* 最近 focus を当てた語（WORDS の番号） */
+var live=[],RX=0,RY=0,focusI=-1,askShown='',raf=null,lastT=0,beat=null,swapping=false;
 var blobPath=null;
 
 /* ───────── 真ん中のアメーバ ─────────
@@ -723,23 +723,24 @@ function measure(){
 }
 function freeWord(){
   var used={};live.forEach(function(l){used[l.wi]=1});
-  var fresh=[],pool=[];
-  for(var i=0;i<WORDS.length;i++){
-    if(used[i])continue;
-    pool.push(i);
-    if(recent.indexOf(i)<0)fresh.push(i);      /* 最近出したものは後回し */
-  }
-  var use=fresh.length?fresh:(pool.length?pool:null);
-  if(!use)return Math.floor(Math.random()*WORDS.length);
-  return use[Math.floor(Math.random()*use.length)];
+  var pool=[];
+  for(var i=0;i<WORDS.length;i++)if(!used[i])pool.push(i);
+  if(!pool.length)return Math.floor(Math.random()*WORDS.length);
+  return pool[Math.floor(Math.random()*pool.length)];
 }
 function place(){
   field.innerHTML='';live=[];focusI=-1;
   SLOTS.forEach(function(sl,i){
-    var el=document.createElement('span');
+    var el=document.createElement('button');
     el.className='word';
     var inner=document.createElement('i');
     el.appendChild(inner);
+    (function(idx){
+      el.addEventListener('click',function(ev){
+        ev.stopPropagation();
+        select(live[idx]===undefined?-1:idx);
+      });
+    })(i);
     field.appendChild(el);
     var l={el:el,inner:inner,wi:-1,rxf:sl.rx,ryf:sl.ry,sp:sl.sp,rx:0,ry:0,
            a:(i/SLOTS.length)*Math.PI*2+Math.random()*.4,born:performance.now()+i*90,
@@ -766,15 +767,15 @@ function place(){
   measure();
   if(blobPath)blobPath.setAttribute('d',blobD(performance.now()));
   draw2(performance.now());
-  /* 立ち上げ直後にひとつ当てておく（問いの空白を作らない）。場所は問わない */
-  focusTo(Math.floor(Math.random()*live.length));
-  if(reduced)rotateFocusSlowly();else start();
+  /* 立ち上げでは何も選ばない。問いは、語を押したときだけ出る */
+  if(!reduced)start();
 }
 
 function setAsk(q){
   if(q===askShown)return;
   var first=!askShown;
   askShown=q;
+  if(!q){askEl.classList.remove('on');return}      /* 選んでいないときは何も出さない */
   if(first){askEl.textContent=q;askEl.classList.add('on');return}
   askEl.classList.remove('on');
   setTimeout(function(){
@@ -782,15 +783,18 @@ function setAsk(q){
     askEl.textContent=q;askEl.classList.add('on');
   },260);
 }
-function focusTo(i){
-  if(i===focusI)return;
-  focusAt=performance.now();
+/* 語を選ぶ。押した語だけが濃くなり、その問いが下に出る。
+   もう一度押すと外れて、問いも消える。勝手には動かない。 */
+function select(i){
+  if(i===focusI){                       /* 同じ語をもう一度 → 外す */
+    live[focusI].el.classList.remove('on');
+    focusI=-1;setAsk('');
+    return;
+  }
   if(focusI>=0&&live[focusI])live[focusI].el.classList.remove('on');
   focusI=i;
-  if(i<0)return;
+  if(i<0){setAsk('');return}
   live[i].el.classList.add('on');
-  recent.push(live[i].wi);
-  while(recent.length>NO_REPEAT)recent.shift();
   setAsk(WORDS[live[i].wi].q);
 }
 
@@ -823,30 +827,6 @@ function draw2(t){
   }
 }
 /* 下を通っている語へ focus を渡す */
-/* focus は場所で選ばない。
-   下に近い語を選んでいたころは、光る語がいつも画面の下にいて、
-   同じ語に何度も戻るので問いが繰り返して見えていた。
-
-   いまは「最近当てていない語」の中から、
-   いま光っている語からいちばん離れて見えるものへ渡す。
-   結果として光は画面のあちこちへ飛び、問いは NO_REPEAT 回ぶん繰り返さない。 */
-function pickFocus(t){
-  if(t-focusAt<FOCUS_TURN)return;
-  var fx=(focusI>=0&&live[focusI])?live[focusI].x:0;
-  var fy=(focusI>=0&&live[focusI])?live[focusI].y:0;
-  var best=-1,bd=-1,fallback=-1,fbAge=1e9;
-  for(var i=0;i<live.length;i++){
-    if(i===focusI||live[i].x===undefined)continue;
-    var seen=recent.indexOf(live[i].wi);
-    if(seen<0){
-      var d=Math.hypot(live[i].x-fx,live[i].y-fy);
-      if(d>bd){bd=d;best=i}                   /* まだ当てていない語のうち、いちばん遠いもの */
-    }else if(seen<fbAge){fbAge=seen;fallback=i}  /* 全部が最近なら、いちばん昔のもの */
-  }
-  if(best<0)best=fallback;
-  if(best>=0)focusTo(best);
-}
-
 /* どこから出てくるか。他の語からいちばん離れて見える角度を選ぶ */
 function openAngle(self){
   var best=0,bs=-1;
@@ -870,7 +850,7 @@ function swapOne(){
   if(swapping)return;
   var cand=-1,old=1e18;
   for(var i=0;i<live.length;i++){
-    if(i===focusI)continue;
+    if(i===focusI)continue;                  /* 選ばれている語は入れ替えない */
     if(live[i].born<old){old=live[i].born;cand=i}
   }
   if(cand<0)return;
@@ -898,12 +878,12 @@ function frame(t){
   if(!running()){lastT=0;return}
   var dt=lastT?Math.min(t-lastT,120):16;
   lastT=t;
+  if(focusI>=0)dt*=0.35;        /* 選ばれているあいだは、場が落ち着く */
   for(var i=0;i<live.length;i++)live[i].a+=live[i].sp*dt;
   spread(dt);
   draw2(t);
   half=!half;
   if(half&&blobPath)blobPath.setAttribute('d',blobD(t));
-  pickFocus(t);
   raf=requestAnimationFrame(frame);
 }
 function start(){
@@ -913,13 +893,6 @@ function start(){
   raf=requestAnimationFrame(frame);
 }
 function stop(){if(raf){cancelAnimationFrame(raf);raf=null}lastT=0}
-/* 動かさない設定のときは、位置は固定して問いだけ移す */
-function rotateFocusSlowly(){
-  var i=0;
-  focusTo(0);
-  setInterval(function(){if(running()){i=(i+1)%live.length;focusTo(i)}},7000);
-}
-
 /* ───────── 深い問いの層 ─────────
    語の野は「今日なにを喋るか」の入口。こちらは「人生のどこを掘るか」の入口。
    ストア派の日記（死を思う／自分の手の内と外を分ける／引いて見る…）の型に沿って、
@@ -1230,9 +1203,11 @@ speak.addEventListener('touchend',function(e){
   if(!swiping)return;swiping=false;
   if(phase()!=='idle')return;
   var t=e.changedTouches[0],dy=t.clientY-ty,dx=t.clientX-tx;
-  if(Math.abs(dy)<58||Math.abs(dy)<Math.abs(dx)*1.4)return;
-  if(dy<0){ deepOn?nextDeep():openDeep(); }    /* 下から上へ＝開く・次へ */
-  else closeDeep();                            /* 上から下へ＝◯ に戻る */
+  /* 指を上へ動かす＝開く・次へ。下へ＝◯ に戻る。
+     取りこぼすと「反応しない」に見えるので、しきいは低め（44px）にしてある。 */
+  if(Math.abs(dy)<44||Math.abs(dy)<Math.abs(dx)*1.1)return;
+  if(dy<0){ deepOn?nextDeep():openDeep(); }
+  else closeDeep();
 },{passive:true});
 
 /* 手元のブラウザでも繰れるように */
@@ -1305,6 +1280,7 @@ $('keepBtn').addEventListener('click',function(){
   state.entries.push(e);save();
   said.textContent='';$('mLen').textContent='';
   closeInput();
+  if(focusI>=0)select(focusI);              /* 選択を外す（問いも消える） */
   seed='';pendingAsk='';
   fly(t);
   draw();
