@@ -82,6 +82,35 @@ body.kb .dots{opacity:0}
 .orb path{fill:var(--lume)}
 .orb.press{transform:scale(.94)}
 
+/* ── 深い問いの層 ──
+   ◯ の面を下から上へなぞると開き、なぞるたびに次が出る。上から下へなぞると ◯ に戻る。
+   触る場所は増やさない（開いているあいだも、押せるのは真ん中だけ）。 */
+.deep{position:absolute;left:0;right:0;
+  top:calc(env(safe-area-inset-top) + 12px);bottom:0;
+  display:grid;place-items:center;align-content:center;
+  padding:0 30px 18vh;pointer-events:none;opacity:0;transition:opacity .34s}
+.deep.on{opacity:1}
+.dcard{max-width:20em;text-align:center}
+.dl{display:block;font-size:9.5px;color:var(--l26);margin-bottom:22px}
+.dq{margin:0;font-weight:300;font-size:clamp(21px,6vw,27px);line-height:1.62;
+  letter-spacing:-.01em;text-wrap:balance;word-break:auto-phrase;color:var(--lume)}
+.dcard.in{animation:rise .42s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+.dtip{position:absolute;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));
+  text-align:center;font-size:10px;color:var(--l16)}
+
+/* 層が開いているあいだ、語は引っ込み、丸は下へ降りて小さくなる（押せば、その問いで喋り出せる） */
+#speak.deep-on .word{opacity:0}
+#speak.deep-on .orbwrap{top:82%;width:58px;height:58px;margin:-29px 0 0 -29px}
+#speak.deep-on .ask{opacity:0}
+/* 引き上げられる、という気配だけ置く */
+.pull{position:absolute;left:50%;bottom:calc(30px + env(safe-area-inset-bottom));
+  width:26px;height:2px;border-radius:1px;background:var(--l16);
+  transform:translateX(-50%);pointer-events:none;
+  animation:nudge 5.2s ease-in-out infinite}
+#speak[data-state="talk"] .pull,#speak.deep-on .pull{animation:none;opacity:0}
+@keyframes nudge{0%,100%{transform:translate(-50%,0);opacity:.28}50%{transform:translate(-50%,-5px);opacity:.9}}
+
 /* 問い。focus が移るたび、ひとりでに書き替わる */
 .ask{flex:0 0 auto;min-height:3.2em;display:flex;align-items:center;justify-content:center;
   text-align:center;font-weight:300;font-size:16.5px;line-height:1.62;color:var(--l58);
@@ -177,6 +206,8 @@ body.kb .tip{opacity:0}
 .it .tg s{text-decoration:none;font-size:10.5px;color:var(--acc)}
 .it .tg s::before{content:"#";color:var(--acc40);margin-right:1px}
 .it .st{font-size:9.5px;color:var(--l26);margin-top:4px;display:block}
+.it .qa{display:block;font-size:10.5px;line-height:1.5;color:var(--l26);margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .yet{font-size:10px;color:var(--l16);padding:2px 0 0}
 .gap{display:flex;align-items:center;gap:9px;margin:0 0 16px;font-size:9px;color:var(--l16)}
 .gap hr{flex:1 1 auto;height:1px;border:0;background:var(--l05);margin:0}
@@ -229,6 +260,8 @@ body.kb .tip{opacity:0}
 .sh .ic{margin:0 -6px 0 0}
 
 /* ① 話したこと＝面の頭。ここだけ字を大きく持つ */
+.eask{margin:2px 0 26px;padding:2px 0 2px 14px;border-left:1px solid var(--l26);
+  font-weight:300;font-size:14px;line-height:1.66;color:var(--l58);word-break:auto-phrase}
 .bul+.bul{margin-top:20px}
 .gh{margin:22px 0 9px;font-weight:400;font-size:11px;letter-spacing:.04em;color:var(--l58)}
 .gh::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;
@@ -261,6 +294,13 @@ body.kb .tip{opacity:0}
   <!-- ───────── 話す ───────── -->
   <section class="pane" id="speak" data-state="idle">
     <div class="field" id="field"></div>
+    <div class="deep" id="deep" aria-hidden="true">
+      <div class="dcard" id="dcard">
+        <span class="dl lo" id="dLabel"></span>
+        <p class="dq" id="dQ"></p>
+      </div>
+      <div class="dtip lo" id="dTip"></div>
+    </div>
     <div class="ask" id="ask"></div>
     <div class="said" id="said" contenteditable="true" role="textbox" aria-label="話したこと" spellcheck="false"></div>
     <div class="meta"><span id="mLen"></span><button class="thin" id="clear">clear</button></div>
@@ -269,6 +309,7 @@ body.kb .tip{opacity:0}
       <button class="thin lo" id="dropBtn">close</button>
     </div>
     <div class="tip lo" id="tip"></div>
+    <i class="pull" id="pull" aria-hidden="true"></i>
   </section>
 
   <!-- ───────── 記録 ───────── -->
@@ -372,6 +413,7 @@ var state=(function load(){
       e.picks=Array.isArray(e.picks)?e.picks:[];
       e.asks=Array.isArray(e.asks)?e.asks:[];
       e.notes=Array.isArray(e.notes)?e.notes:[];
+      e.ask=String(e.ask||'');              // 深い問いから始めた日記だけ持つ
       e.status=e.status||'draft';           // draft → read → kept
       e.day=e.day||(e.createdAt||'').slice(0,10)||today();
     });
@@ -477,7 +519,7 @@ var FOCUS_TURN=4600;        /* 何ミリ秒ごとに focus を次の語へ渡す
 var NO_REPEAT=9;            /* 直近この数の語には focus を戻さない。画面に出ている語数より少なくしておく */
 var SWAP_MS=6800;           /* 何ミリ秒ごとに1語を入れ替えるか */
 
-var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='';
+var field=$('field'),speak=$('speak'),said=$('said'),askEl=$('ask'),orb=null,seed='',pendingAsk='';
 var live=[],RX=0,RY=0,focusI=-1,askShown='',raf=null,lastT=0,beat=null,swapping=false,focusAt=0;
 var recent=[];              /* 最近 focus を当てた語（WORDS の番号） */
 var blobPath=null;
@@ -687,7 +729,7 @@ function swapOne(){
 }
 
 function running(){
-  return !document.hidden && pane===0 && speak.getAttribute('data-state')==='idle' && !openId;
+  return !document.hidden && pane===0 && speak.getAttribute('data-state')==='idle' && !openId && !deepOn;
 }
 var half=false;
 function frame(t){
@@ -717,10 +759,120 @@ function rotateFocusSlowly(){
   setInterval(function(){if(running()){i=(i+1)%live.length;focusTo(i)}},7000);
 }
 
+/* ───────── 深い問いの層 ─────────
+   語の野は「今日なにを喋るか」の入口。こちらは「人生のどこを掘るか」の入口。
+   ストア派の日記（死を思う／自分の手の内と外を分ける／引いて見る…）の型に沿って、
+   答えではなく問いだけを置く。文言はこのアプリのために書き下ろしたもの。
+
+   ◯ の面を下から上へなぞると開き、なぞるたびに次が出る。上から下へなぞると ◯ に戻る。
+   開いているあいだも押せるのは真ん中の丸だけで、押すとその問いのまま喋り始められる。 */
+var DEEP=[
+{k:'mortality',q:'今日が最後の一日だと分かっていたら、予定のどれを消す？'},
+{k:'mortality',q:'自分がいなくなったあとも残したい考え方は、どれ？'},
+{k:'control',  q:'いま気を揉んでいることのうち、自分の手で動かせるのはどこまで？'},
+{k:'control',  q:'相手が変わらなくても続けられることは、何？'},
+{k:'view',     q:'100年後の人がこの1年を見たら、何を重要だと言う？'},
+{k:'view',     q:'いまの悩みを、10年後の自分はどんな言葉で呼ぶ？'},
+{k:'loss',     q:'当たり前に持っているもので、失って初めて価値が分かるのはどれ？'},
+{k:'loss',     q:'いま手放しても、生き方が変わらないものは？'},
+{k:'character',q:'尊敬している人なら、いまの自分の状況で何を最初にやる？'},
+{k:'character',q:'誰も見ていなくても、やめないでいることは？'},
+{k:'judgment', q:'事実と、自分の解釈を分けると、何が残る？'},
+{k:'judgment', q:'その出来事が悪いと決めたのは、誰？'},
+{k:'anger',    q:'最後に本気で腹を立てたのはいつ？その怒りは何を守ろうとしていた？'},
+{k:'others',   q:'その人を悪く言いたくなるのは、自分の何を守るため？'},
+{k:'others',   q:'今日、誰の時間を無駄にした？誰が自分の時間を大事にしてくれた？'},
+{k:'desire',   q:'手に入れたら満足すると思っているものを、すでに持っている人は満足している？'},
+{k:'praise',   q:'誰にどう思われたくて、それをやっている？'},
+{k:'fear',     q:'怖くて避けていることを実際にやったら、最悪どうなる？'},
+{k:'fear',     q:'できないと決めているのは、試したからか、聞いただけか？'},
+{k:'time',     q:'先延ばしにしていることは、何を待っている？'},
+{k:'time',     q:'今日いちばん長く使った時間は、自分が選んだものだった？'},
+{k:'habit',    q:'1年続けたら別人になる小さな行いを、1つ挙げると？'},
+{k:'adversity',q:'いちばん苦しかった時期が、自分に残したものは？'},
+{k:'fortune',  q:'いまの成果のうち、自分の力ではない部分はどこ？'},
+{k:'money',    q:'お金が半分になっても変えたくない暮らしの部分は？'},
+{k:'work',     q:'その仕事は、誰の何を良くしている？'},
+{k:'duty',     q:'今日、引き受けるべきだったのに避けたことは？'},
+{k:'simplicity',q:'いまの暮らしから1つ減らすとしたら、候補は何？'},
+{k:'gratitude',q:'当たり前だと思って、礼を言わなかったことは？'},
+{k:'change',   q:'1年前の自分が今の自分を見たら、何に驚く？'},
+{k:'now',      q:'いまこの瞬間に足りないものは、本当にある？'},
+{k:'end',      q:'いまやっていることを、どうなったらやめる？'}
+];
+var deepEl=$('deep'),deepOn=false,deck=[],deckI=0,deepAsk='';
+function phase(){return speak.getAttribute('data-state')}
+
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}
+  return a;
+}
+function nextDeep(){
+  if(deckI>=deck.length){
+    var last=deck.length?deck[deck.length-1]:null;
+    deck=shuffle(DEEP.slice());
+    if(last&&deck[0]===last)deck.push(deck.shift());   /* ひと巡り直後の重複を避ける */
+    deckI=0;
+  }
+  var d=deck[deckI++];
+  deepAsk=d.q;
+  $('dLabel').textContent=d.k;
+  $('dQ').textContent=d.q;
+  var c=$('dcard');c.classList.remove('in');void c.offsetWidth;c.classList.add('in');
+}
+function openDeep(){
+  if(deepOn||phase()!=='idle')return;
+  deepOn=true;
+  deepEl.classList.add('on');deepEl.setAttribute('aria-hidden','false');
+  speak.classList.add('deep-on');
+  $('dTip').textContent='up';
+  stop();                     /* 語は引っ込むので、描画も止める */
+  nextDeep();
+  if(!hintedDeep){hintedDeep=true;setTimeout(function(){say('上へなぞると次の問い。下へで戻る')},900)}
+}
+function closeDeep(){
+  if(!deepOn)return;
+  deepOn=false;deepAsk='';
+  deepEl.classList.remove('on');deepEl.setAttribute('aria-hidden','true');
+  speak.classList.remove('deep-on');
+  start();
+}
+var hintedDeep=false;
+
+/* 縦になぞったときだけ拾う。横は面の移動に残す */
+var ty=0,tx=0,swiping=false;
+speak.addEventListener('touchstart',function(e){
+  if(e.touches.length!==1){swiping=false;return}
+  ty=e.touches[0].clientY;tx=e.touches[0].clientX;swiping=true;
+},{passive:true});
+speak.addEventListener('touchend',function(e){
+  if(!swiping)return;swiping=false;
+  if(phase()!=='idle')return;
+  var t=e.changedTouches[0],dy=t.clientY-ty,dx=t.clientX-tx;
+  if(Math.abs(dy)<58||Math.abs(dy)<Math.abs(dx)*1.4)return;
+  if(dy<0){ deepOn?nextDeep():openDeep(); }    /* 下から上へ＝開く・次へ */
+  else closeDeep();                            /* 上から下へ＝◯ に戻る */
+},{passive:true});
+
+/* 手元のブラウザでも繰れるように */
+document.addEventListener('keydown',function(e){
+  if(pane!==0||openId||phase()!=='idle')return;
+  if(e.key==='ArrowUp'){deepOn?nextDeep():openDeep()}
+  else if(e.key==='ArrowDown'||e.key==='Escape')closeDeep();
+});
+
 /* iOS は、押したのと同じ処理の中で focus しないとキーボードが出ない。
    setTimeout を挟むと開かないので、ここは必ず同期で書く。 */
 function openInput(){
-  seed=(focusI>=0&&live[focusI])?WORDS[live[focusI].wi].w:'';
+  /* 深い問いが開いていれば、その問いのまま喋り始める（入口はそちらが強い） */
+  if(deepOn){
+    seed=$('dLabel').textContent;
+    pendingAsk=deepAsk;
+    closeDeep();
+  }else{
+    seed=(focusI>=0&&live[focusI])?WORDS[live[focusI].wi].w:'';
+    pendingAsk='';
+  }
   stop();
   speak.setAttribute('data-state','talk');
   $('tip').textContent='';
@@ -767,12 +919,12 @@ $('clear').addEventListener('click',function(){
 $('keepBtn').addEventListener('click',function(){
   var t=text();
   if(t.length<4){say('ひとことだけでも');return}
-  var e={id:uid(),createdAt:nowIso(),day:today(),seed:seed,raw:t,
+  var e={id:uid(),createdAt:nowIso(),day:today(),seed:seed,ask:pendingAsk,raw:t,
          lines:[],digest:'',tags:[],picks:[],asks:[],notes:[],status:'draft'};
   state.entries.push(e);save();
   said.textContent='';$('mLen').textContent='';
   closeInput();
-  seed='';
+  seed='';pendingAsk='';
   fly(t);
   draw();
   shape(e);
@@ -827,7 +979,10 @@ document.addEventListener('visibilitychange',function(){
    洞察・問い・過去との突き合わせは置かない（規則では作れないものを作らない）。 */
 
 /* 言いよどみ。喋りの頭に必ず付くものだけを落とす */
-var FILL=/^(えーと|えっと|えー|あのー|あの|うーん|んー|なんか|そうだな|やっぱり|ていうか|というか|まあ|ま|で|それで|あと)[、,。\s]*/;
+var FILL=/^(えーと|えっと|えー|あのー|あの|うーん|んー|なんか|そうだな|やっぱり|ていうか|というか|まあ)[、,。\s]*/;
+/* 「で」「あと」などは語の頭にもなる（でも・まだ・あとで）。
+   読点や空きが続くときだけ、つなぎ言葉として落とす。 */
+var FILL2=/^(で|ま|あと|それで|そして|んで)[、,\s]+/;
 /* 言い方の重み。要点を選ぶときに、ここを含む行を上げる */
 var MARK=/気づ|気付|わかった|分かった|つまり|結局|そうか|実は|逆に|重要|大事|ということは|だと思う|べき|やめ|決め|したい|しよう|必要|問題は|大事なのは/;
 
@@ -837,7 +992,7 @@ function sentences(raw){
   var out=[];
   parts.forEach(function(p){
     var t=p.replace(/\s+/g,' ').trim();
-    for(var i=0;i<3;i++)t=t.replace(FILL,'');
+    for(var i=0;i<3;i++)t=t.replace(FILL,'').replace(FILL2,'');
     t=t.trim();
     if(!t)return;
     /* 短い言い直しは前の行にくっつける（1行1事にするため） */
@@ -1059,7 +1214,8 @@ function dayRow(day,list){
     var tg=e.tags.length?'<div class="tg">'+e.tags.map(function(t){return '<s>'+esc(t)+'</s>'}).join('')+'</div>':'';
     var st=e.status==='draft'?'<span class="st">まだ読んでいない</span>':
            (e.status==='read'?'<span class="st">まだ保存していない</span>':'');
-    it.innerHTML='<u>'+hhmm(e.createdAt)+'</u><div><p>'+esc(e.digest||e.raw)+'</p>'+tg+st+'</div>';
+    var qa=e.ask?'<span class="qa">'+esc(e.ask)+'</span>':'';
+    it.innerHTML='<u>'+hhmm(e.createdAt)+'</u><div>'+qa+'<p>'+esc(e.digest||e.raw)+'</p>'+tg+st+'</div>';
     it.addEventListener('click',function(){openSheet(e)});
     items.appendChild(it);
   });
@@ -1075,6 +1231,7 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 function entryText(e){
   var L=['## '+e.day+' '+hhmm(e.createdAt)+(e.seed?'  ['+e.seed+']':'')];
   if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '));
+  if(e.ask)L.push('問い: '+e.ask);
   L.push('');
   L.push('― 要点');
   groupsOf(e).forEach(function(g){
@@ -1194,6 +1351,13 @@ function drawSheet(e){
   $('sWhen').textContent=dayLabel(e.day)+' '+hhmm(e.createdAt)+(e.seed?' · '+e.seed:'');
   var b=$('sBody');b.innerHTML='';
 
+  /* ⓪ 深い問いから始めた日記は、その問いを頭に置く（何に答えたかも記録） */
+  if(e.ask){
+    var q=document.createElement('p');q.className='eask';
+    q.textContent=e.ask;
+    b.appendChild(q);
+  }
+
   /* ① 構造化した要点。語で寄せたかたまりごとに置く */
   var gs=groupsOf(e);
   var sum=gs.map(function(g){
@@ -1244,7 +1408,9 @@ function drawSheet(e){
 function blockText(e,kind){
   var L=['## '+e.day+' '+hhmm(e.createdAt)+'　'+kind,''];
   if(kind==='summary'){
-    if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '),'');
+    if(e.tags.length)L.push(e.tags.map(function(t){return '#'+t}).join(' '));
+    if(e.ask)L.push('問い: '+e.ask);
+    L.push('');
     groupsOf(e).forEach(function(g){
       if(g.h)L.push('【'+g.h+'】');
       g.ls.forEach(function(l){L.push('- '+l)});
