@@ -122,9 +122,6 @@ body.kb .dots{opacity:0}
 .ds{display:block;margin-top:12px;font-size:10px;letter-spacing:.04em;color:var(--l26);text-align:left}
 .dcard.in{animation:rise .42s var(--ease) both}
 @keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-.dtip{position:absolute;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));
-  text-align:center;font-size:10px;color:var(--l16)}
-
 /* 層が開いているあいだ、語は引っ込み、丸は下へ降りて小さくなる（押せば、その問いで喋り出せる） */
 #speak.deep-on .word{opacity:0}
 #speak.deep-on .orbwrap{top:82%;width:58px;height:58px;margin:-29px 0 0 -29px}
@@ -332,7 +329,6 @@ body.kb .tip{opacity:0}
         <p class="dn" id="dNote"></p>
         <span class="ds" id="dSrc"></span>
       </div>
-      <div class="dtip lo" id="dTip"></div>
     </div>
     <div class="ask" id="ask"></div>
     <div class="said" id="said" contenteditable="true" role="textbox" aria-label="話したこと" spellcheck="false"></div>
@@ -533,6 +529,7 @@ function idbPut(v){
 }
 
 /* ── 立ち上げ：localStorage と、日ごとの控えを足し合わせる ── */
+var recovered=0;            /* 立ち上げで控えから戻した件数 */
 var state=(function load(){
   var main=parse(store.get(KEY));
   var raw=store.get(KEY);
@@ -546,7 +543,9 @@ var state=(function load(){
     var s2=parse(store.get(k));
     if(s2)out=merge(out,s2);
   });
-  return out||blank();
+  out=out||blank();
+  recovered=out.entries.length-(main?main.entries.length:0);
+  return out;
 })();
 
 /* ── 保存：本体・控え・日ごとの控え ── */
@@ -555,18 +554,26 @@ function save(){
   var json=JSON.stringify(state);
   store.set(KEY,json);
 
-  /* 日が変わったら、その日の頭の姿を1つ残す（直近10日ぶん） */
+  /* その日の控えを、保存のたびに上書きする（直近10日ぶん）。
+     日が変わった瞬間だけ残していたころは、その日に書いたものが控えに入らなかった。 */
   var t=today();
+  store.set(SNAP+t,json);
   if(snapDay!==t){
     snapDay=t;store.set('murmur_snap_day',t);
-    store.set(SNAP+t,json);
-    var snaps=store.keys().filter(function(k){return k.indexOf(SNAP)===0}).sort();
+    var snaps=store.keys().filter(function(k){return k.indexOf(SNAP)===0&&k!=='murmur_snap_day'}).sort();
     while(snaps.length>10)store.del(snaps.shift());
   }
 
   try{idbPut(json)['catch'](function(){})}catch(e){}
 
   if(volatile&&!warned){warned=true;setTimeout(function(){say('この画面ではデータが残らない。ホーム画面に追加して使って。')},600)}
+}
+
+/* 控えから戻したものは、その場で本体へ書き戻す。
+   memory の中だけで戻しても、次に開いたときにまた同じことをするので。 */
+if(recovered>0){
+  save();
+  setTimeout(function(){say('控えから '+recovered+'件を戻した')},700);
 }
 
 /* ── 立ち上げのあと：IndexedDB の控えと突き合わせる ── */
@@ -1143,10 +1150,8 @@ function openDeep(){
   deepOn=true;
   deepEl.classList.add('on');deepEl.setAttribute('aria-hidden','false');
   speak.classList.add('deep-on');
-  $('dTip').textContent='up';
   stop();                     /* 語は引っ込むので、描画も止める */
   nextDeep();
-  if(!hintedDeep){hintedDeep=true;setTimeout(function(){say('上へなぞると次の問い。下へなぞると戻る')},900)}
 }
 function closeDeep(){
   if(!deepOn)return;
@@ -1155,7 +1160,6 @@ function closeDeep(){
   speak.classList.remove('deep-on');
   start();
 }
-var hintedDeep=false;
 
 /* 縦になぞったときだけ拾う。横は面の移動に残す */
 var ty=0,tx=0,swiping=false;
@@ -1649,6 +1653,32 @@ function drawSet(){
     '移すときは、下の export と import を使う。';
   d.appendChild(info);
   b.appendChild(d);
+
+  var f=document.createElement('div');f.className='blk';
+  f.innerHTML='<h3 class="lo">restore</h3>';
+  var fb=document.createElement('button');
+  fb.className='wide';fb.textContent='この端末の中を探して戻す';
+  var fp=document.createElement('p');
+  fp.textContent='この端末のこのアプリの中にある控えを全部読み直して、足りない日記があれば戻す。0件と出たら、日記はこの入れ物には無い（別のアイコン、または Safari 側にある）。';
+  fb.addEventListener('click',function(){
+    var found=[],before=state.entries.length;
+    store.keys().forEach(function(k){
+      if(k!==KEY&&k.indexOf(SNAP)!==0&&k.indexOf(KEY+'_backup_')!==0)return;
+      var s2=parse(store.get(k));
+      if(s2&&s2.entries.length){found.push(k+'（'+s2.entries.length+'件）');state=merge(state,s2)}
+    });
+    idbGet().then(function(raw){
+      var s3=parse(raw);
+      if(s3&&s3.entries.length){found.push('端末の中の控え（'+s3.entries.length+'件）');state=merge(state,s3)}
+    })['catch'](function(){})['then'](function(){
+      save();draw();
+      var add=state.entries.length-before;
+      fp.textContent=found.length?('見つかった控え: '+found.join('、')+'。'+(add?add+'件を戻した。':'足りないものは無かった。')):
+        '見つかった控えは0件。日記はこの入れ物には無い。前のアイコンか Safari で開いて export し、ここに import で貼る。';
+    });
+  });
+  f.appendChild(fb);f.appendChild(fp);
+  b.appendChild(f);
 
   var x=document.createElement('div');x.className='blk';
   x.innerHTML='<h3 class="lo">export</h3>';
